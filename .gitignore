@@ -1,0 +1,11 @@
+node_modules/
+build/
+prebuilds/
+*.log
+
+# The STOVE PC SDK is never committed — bring your own (see sdk/README.md).
+sdk/*
+!sdk/README.md
+*.dll
+*.lib
+*.pdb
