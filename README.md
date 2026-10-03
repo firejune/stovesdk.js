@@ -141,6 +141,10 @@ SDK callbacks are plain C function pointers with no user-data slot, and the vend
 
 [`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml) is a manually triggered Windows x64 build that expects the SDK to be present on the runner at `STOVE_PCSDK_DIR`. Because the SDK is not public, the workflow does not download it; how CI gets the SDK is an open design question — see the workflow header for the options under consideration.
 
+## Contributing and releases
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers issues, the checks a pull request has to clear and the commit conventions; [RELEASING.md](RELEASING.md) covers how a version is cut and how prebuilds reach a release; [ROADMAP.md](ROADMAP.md) says what comes next.
+
 ## Disclaimer
 
 This is an independent project. It is not affiliated with, endorsed by, or supported by Smilegate or STOVE. "STOVE" is a trademark of its respective owner.
