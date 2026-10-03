@@ -9,4 +9,3 @@ sdk/*
 *.dll
 *.lib
 *.pdb
-package-lock.json

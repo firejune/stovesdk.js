@@ -44,7 +44,7 @@ npm run smoke       # loads the addon and exercises the paths that need no STOVE
 
 The `.node` hard-imports `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll`. Ship those three DLLs next to the `.node` (or next to your executable) — they are part of the SDK, not of this package.
 
-On other platforms `npm install` and `npm test` work (pure JS), but there is nothing to compile; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
+On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force` (which skips only that platform check — a lockfile out of sync with `package.json` is still refused) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
 
 ## Usage
 
