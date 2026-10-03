@@ -14,6 +14,18 @@
 #   C. Maintainers build locally and attach prebuilds to releases by hand. Zero CI design, but the
 #      prebuilt .node has no reproducible provenance.
 # Whichever is chosen, this file stays the single place that knows how to compile.
+#
+# 🔒 Trust boundary — read this before adding a trigger or changing `runs-on`.
+#   - Manual dispatch ONLY. There is no `pull_request`, `pull_request_target`, `push` or
+#     `schedule` trigger, and none may be added: a pull request from a fork must never be
+#     able to start this job, because whatever runner builds it may hold the SDK.
+#   - `workflow_dispatch` needs write access to the repository — that is the real boundary.
+#     On top of it the job refuses any ref other than `main` or a `v*` tag, so a dispatch
+#     by mistake from an unreviewed branch builds nothing. (A dispatch runs the workflow file
+#     of the ref it names, so this `if` guards against accidents, not against a writer.)
+#   - It runs on a GitHub-hosted runner. If option A is ever chosen, the self-hosted runner
+#     must be scoped to this workflow on these refs and must never be offered to a job that
+#     builds untrusted code (pull requests, forks, or any other workflow in this repository).
 name: prebuild
 
 on:
@@ -24,6 +36,8 @@ permissions:
 
 jobs:
   windows-x64:
+    # Reviewed refs only (see the header): a dispatch from a feature branch is refused here.
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     runs-on: windows-latest
     timeout-minutes: 20
     defaults:
