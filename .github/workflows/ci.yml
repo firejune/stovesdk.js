@@ -1,0 +1,105 @@
+# CI: everything that can be checked without the STOVE PC SDK.
+#
+# The addon itself is Windows x64 C++ linked against a private SDK, so no step here
+# compiles it — prebuild.yml is the only file that knows how, and it never runs on a
+# pull request. What this job does check is the half of the package a consumer
+# touches first: the JS entry and its unit tests, the strict compile of the public
+# typings, the syntax of every script, that the workflows and the release config
+# parse, and that nothing from the SDK (or any binary) is tracked or would ship.
+#
+# 🔒 The job id is `test`, and that string is the required status check on `main`.
+# Renaming the job, adding a `name:`, or turning it into a matrix changes the
+# check's name and leaves branch protection waiting for a check that never reports.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The release pull request gets a `pull_request` run like any other, but because
+  # release-please opens it with GITHUB_TOKEN the run lands in `action_required`
+  # and has to be approved by hand — see RELEASING.md. A dispatched run cannot
+  # stand in for that approval (a required check is matched by the run that
+  # reported it, not by the SHA); the trigger is a manual lever and nothing more.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # `--force` skips exactly one check here: package.json declares
+      # `os: ["win32"]` / `cpu: ["x64"]`, and npm refuses to install a root package
+      # on a platform it does not list. A lockfile out of sync with package.json is
+      # still refused under `--force`. `--ignore-scripts` because there is nothing
+      # to build on this runner, and no dependency's install script should run.
+      - name: Install dev dependencies
+        run: npm ci --no-audit --no-fund --ignore-scripts --force
+
+      - name: Unit tests (pure JS, no native build)
+        run: npm test
+
+      - name: Syntax of every tracked script
+        run: |
+          set -euo pipefail
+          git ls-files -z '*.js' | xargs -0 -n1 node --check
+          git ls-files -z '*.sh' | xargs -0 -n1 sh -n
+          echo "node --check / sh -n: $(git ls-files '*.js' '*.sh' | wc -l) files OK"
+
+      # test/tsconfig.json is `strict: true` with `skipLibCheck: false`, so this
+      # compiles index.d.ts itself as well as test/types-usage.ts against it.
+      - name: Typings (strict)
+        run: npm run typecheck
+
+      - name: Workflows and release config parse
+        run: |
+          set -euo pipefail
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user --quiet pyyaml
+          for f in .github/workflows/*.yml; do
+            python3 - "$f" <<'PY'
+          import sys, yaml
+          path = sys.argv[1]
+          doc = yaml.safe_load(open(path))
+          # PyYAML reads the bare key `on` as the boolean True.
+          triggers = doc.get('on', doc.get(True))
+          assert isinstance(doc, dict) and doc.get('name'), f'{path}: no top-level name'
+          assert triggers, f'{path}: no triggers'
+          assert isinstance(doc.get('jobs'), dict) and doc['jobs'], f'{path}: no jobs'
+          print(f'{path}: OK ({", ".join(doc["jobs"])})')
+          PY
+          done
+          node -e '
+            const cfg = require("./release-please-config.json")
+            const manifest = require("./.release-please-manifest.json")
+            const pkg = require("./package.json")
+            const root = cfg.packages && cfg.packages["."]
+            if (!root || root["package-name"] !== pkg.name) throw new Error("release-please package-name must be " + pkg.name)
+            if (manifest["."] !== pkg.version) throw new Error(`manifest ${manifest["."]} != package.json ${pkg.version}`)
+            console.log(`release-please config OK (${pkg.name}@${pkg.version})`)
+          '
+
+      # Public-repository hygiene. The SDK is bring-your-own: none of its files,
+      # and no compiled binary, may be tracked or end up in the npm tarball.
+      - name: Nothing from the SDK is tracked or packed
+        run: |
+          set -euo pipefail
+          tracked=$(git ls-files -- '*.dll' '*.lib' '*.pdb' '*.node' '*.exe' '*.h' '*.hpp' 'sdk/**' ':!sdk/README.md')
+          if [ -n "$tracked" ]; then
+            echo "::error::SDK files or binaries are tracked:"; echo "$tracked"; exit 1
+          fi
+          npm pack --dry-run --json --ignore-scripts > "$RUNNER_TEMP/pack.json"
+          node -e '
+            const [pack] = require(process.argv[1])
+            const bad = pack.files.map(f => f.path).filter(p => /^sdk\/|\.(dll|lib|pdb|node|exe|h|hpp)$/i.test(p))
+            if (bad.length) { console.error("would ship:\n" + bad.join("\n")); process.exit(1) }
+            console.log(`npm pack: ${pack.files.length} files, none from the SDK`)
+          ' "$RUNNER_TEMP/pack.json"

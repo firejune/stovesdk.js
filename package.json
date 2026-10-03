@@ -1,18 +1,55 @@
 {
-  "name": "stove-pcsdk.js",
+  "name": "stovesdk.js",
   "version": "0.0.0",
   "description": "Unofficial Node.js / Electron bindings for the STOVE PC SDK (N-API)",
   "license": "MIT",
   "author": "firejune",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/firejune/stove-pcsdk.js.git"
+    "url": "git+https://github.com/firejune/stovesdk.js.git"
   },
-  "keywords": ["stove", "pcsdk", "electron", "napi", "gamedev", "achievements"],
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "keywords": [
+    "stove",
+    "pcsdk",
+    "electron",
+    "napi",
+    "gamedev",
+    "achievements"
+  ],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "engines": {
     "node": ">=18"
   },
-  "files": ["README.md", "LICENSE"]
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "lib/",
+    "src/",
+    "tools/",
+    "binding.gyp",
+    "prebuilds/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check-sdk": "node tools/sdk-dir.js check",
+    "build": "node-gyp rebuild --release --arch=x64",
+    "clean": "node-gyp clean",
+    "smoke": "node tools/smoke.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "typecheck": "tsc --noEmit -p test/tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "node-addon-api": "8.9.2",
+    "node-gyp": "13.0.2",
+    "typescript": "5.9.3"
+  }
 }

@@ -1,0 +1,91 @@
+# Windows x64 prebuild — skeleton.
+#
+# The STOVE PC SDK is not public, so this workflow does NOT download it and defines no secret for
+# it. It expects the SDK to already be present on the runner at STOVE_PCSDK_DIR and fails early
+# with a readable message otherwise. Until SDK access for CI is decided, this job only runs on
+# manual dispatch.
+#
+# Open question — how does CI get the SDK? Options under consideration:
+#   A. Self-hosted Windows runner with the SDK pre-installed at a fixed STOVE_PCSDK_DIR.
+#      No secrets, no SDK bytes in GitHub; the maintainer owns the machine.
+#   B. Encrypted SDK archive fetched at build time from a maintainer-controlled location, with the
+#      URL and decryption key held as repository secrets. Works on hosted runners; the SDK still
+#      never enters the repo, but its bytes transit the build.
+#   C. Maintainers build locally and attach prebuilds to releases by hand. Zero CI design, but the
+#      prebuilt .node has no reproducible provenance.
+# Whichever is chosen, this file stays the single place that knows how to compile.
+#
+# 🔒 Trust boundary — read this before adding a trigger or changing `runs-on`.
+#   - Manual dispatch ONLY. There is no `pull_request`, `pull_request_target`, `push` or
+#     `schedule` trigger, and none may be added: a pull request from a fork must never be
+#     able to start this job, because whatever runner builds it may hold the SDK.
+#   - `workflow_dispatch` needs write access to the repository — that is the real boundary.
+#     On top of it the job refuses any ref other than `main` or a `v*` tag, so a dispatch
+#     by mistake from an unreviewed branch builds nothing. (A dispatch runs the workflow file
+#     of the ref it names, so this `if` guards against accidents, not against a writer.)
+#   - It runs on a GitHub-hosted runner. If option A is ever chosen, the self-hosted runner
+#     must be scoped to this workflow on these refs and must never be offered to a job that
+#     builds untrusted code (pull requests, forks, or any other workflow in this repository).
+name: prebuild
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    # Reviewed refs only (see the header): a dispatch from a feature branch is refused here.
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Option A/B would set this to wherever the SDK lands on the runner.
+      STOVE_PCSDK_DIR: ${{ vars.STOVE_PCSDK_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Locate the STOVE PC SDK (must already be on the runner)
+        run: |
+          set -eu
+          if [ -z "${STOVE_PCSDK_DIR:-}" ]; then
+            echo "::error::STOVE_PCSDK_DIR is not set — the SDK is not public and this workflow does not download it. See the header of this file for the options."
+            exit 1
+          fi
+          node tools/sdk-dir.js check
+
+      - name: Install build dependencies
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: Build stovesdk.node (x64, Release)
+        run: npm run build
+
+      - name: Smoke (load-only; no STOVE client on the runner)
+        run: |
+          set -eu
+          # The .node imports the SDK DLLs; place them beside it for the load.
+          for m in BaseSDK OwnershipSDK GameSupportSDK; do
+            cp "$STOVE_PCSDK_DIR/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/
+          done
+          node tools/smoke.js build/Release/stovesdk.node
+
+      - name: Stage prebuild (addon only — the SDK DLLs are not redistributed by this package)
+        run: |
+          set -eu
+          mkdir -p prebuilds/win32-x64
+          cp build/Release/stovesdk.node prebuilds/win32-x64/
+          (cd prebuilds/win32-x64 && sha256sum ./* | tee SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stovesdk-win32-x64
+          path: prebuilds/win32-x64
+          if-no-files-found: error
