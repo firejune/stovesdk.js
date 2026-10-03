@@ -1,0 +1,59 @@
+# Release: the cut is one click — merge the release pull request.
+#
+# Every push to main hands the commits to release-please, which keeps a
+# "release: vX.Y.Z" pull request open — next version derived from the
+# conventional-commit subjects, CHANGELOG.md generated, package.json bumped.
+# Merging that pull request is the release: the resulting push runs this
+# workflow again, and release-please tags vX.Y.Z and cuts the GitHub release.
+#
+# ⛔ npm publishing is NOT part of this workflow. It has not been authorized
+# for this package, and this file must not grow a publish step, an npm token or
+# `id-token: write` until it is — RELEASING.md *Publishing* records the decision
+# and what turning it on would take. Until then a release is a tag, a GitHub
+# release and a changelog; the Windows prebuild is attached to the GitHub
+# release by hand (RELEASING.md *Prebuilt binaries*).
+#
+# 🔒 GitHub-hosted runner only. This job writes tags and releases; it never
+# runs on a self-hosted runner.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # release commit, tag, GitHub release
+      pull-requests: write # open and update the release PR
+      issues: write # release-please labels
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # GITHUB_TOKEN is the intended default. Its one limitation is that the
+          # `pull_request` run on the release PR needs a manual approval before
+          # it starts, so the PR's required `test` check reads as blocked rather
+          # than absent — see RELEASING.md for that step and for opting into
+          # RELEASE_PLEASE_TOKEN instead. The fallback needs no edit here.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Runs only on the push that merged a release PR. It publishes nothing; it
+      # leaves a line in the run log saying what was cut and what is still manual.
+      - name: Record the cut
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: |
+          echo "Cut ${TAG_NAME}: tag and GitHub release created."
+          echo "Not published to npm (not authorized). Attach the win32-x64 prebuild to the release by hand — RELEASING.md."
