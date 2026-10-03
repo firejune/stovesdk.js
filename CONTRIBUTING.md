@@ -46,7 +46,7 @@ npm run build && npm run smoke       # Windows x64 with the SDK: the real build,
 - **No SDK material.** Nothing from the SDK is committed or packed; CI refuses
   tracked SDK file types and anything of the kind in `npm pack`.
 - **N-API on the JS thread only.** SDK callbacks enqueue; `runCallbacks()` settles.
-- **The API moves as one.** A public change updates `src/stove_pcsdk.cc`,
+- **The API moves as one.** A public change updates `src/stovesdk.cc`,
   `index.d.ts`, the README API table and `test/types-usage.ts` together.
 - **Every failure keeps its shape.** Synchronous argument errors, rejections with
   `{ step, sdk, method, code, externalError }`, negative codes for the addon's own.

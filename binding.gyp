@@ -1,5 +1,5 @@
 {
-  # stove-pcsdk.js — N-API addon build (Windows x64 only).
+  # stovesdk.js — N-API addon build (Windows x64 only).
   #
   # Why node-gyp (and not cmake-js / napi-rs):
   #   - The SDK ships as MSVC C++ headers + import libs + DLLs, and its structs have their
@@ -16,10 +16,10 @@
   },
   'targets': [
     {
-      'target_name': 'stove_pcsdk',
+      'target_name': 'stovesdk',
       'conditions': [
         ['OS=="win"', {
-          'sources': ['src/stove_pcsdk.cc'],
+          'sources': ['src/stovesdk.cc'],
           'include_dirs': [
             "<!@(node -p \"require('node-addon-api').include\")",
             # Root first: OwnershipSDK/GameSupportSDK headers include

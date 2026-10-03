@@ -20,7 +20,7 @@
   ],
   "packages": {
     ".": {
-      "package-name": "stove-pcsdk.js",
+      "package-name": "stovesdk.js",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false
     }

@@ -1,4 +1,4 @@
-# stove-pcsdk.js
+# stovesdk.js
 
 Unofficial Node.js / Electron bindings for the **STOVE PC SDK** (N-API).
 
@@ -38,7 +38,7 @@ On Windows x64 with Visual Studio Build Tools (C++ workload) and Python installe
 ```sh
 npm install
 npm run check-sdk   # verifies sdk/ or STOVE_PCSDK_DIR
-npm run build       # node-gyp rebuild → build/Release/stove_pcsdk.node
+npm run build       # node-gyp rebuild → build/Release/stovesdk.node
 npm run smoke       # loads the addon and exercises the paths that need no STOVE client
 ```
 
@@ -49,7 +49,7 @@ On other platforms the JS side still works for development, but there is nothing
 ## Usage
 
 ```js
-const { load, ErrorCode } = require('stove-pcsdk.js')
+const { load, ErrorCode } = require('stovesdk.js')
 
 const stove = load() // throws off Windows or when no build/prebuild exists
 

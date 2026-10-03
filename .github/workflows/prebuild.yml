@@ -65,7 +65,7 @@ jobs:
       - name: Install build dependencies
         run: npm ci --no-audit --no-fund --ignore-scripts
 
-      - name: Build stove_pcsdk.node (x64, Release)
+      - name: Build stovesdk.node (x64, Release)
         run: npm run build
 
       - name: Smoke (load-only; no STOVE client on the runner)
@@ -75,17 +75,17 @@ jobs:
           for m in BaseSDK OwnershipSDK GameSupportSDK; do
             cp "$STOVE_PCSDK_DIR/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/
           done
-          node tools/smoke.js build/Release/stove_pcsdk.node
+          node tools/smoke.js build/Release/stovesdk.node
 
       - name: Stage prebuild (addon only — the SDK DLLs are not redistributed by this package)
         run: |
           set -eu
           mkdir -p prebuilds/win32-x64
-          cp build/Release/stove_pcsdk.node prebuilds/win32-x64/
+          cp build/Release/stovesdk.node prebuilds/win32-x64/
           (cd prebuilds/win32-x64 && sha256sum ./* | tee SHA256SUMS)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stove-pcsdk-win32-x64
+          name: stovesdk-win32-x64
           path: prebuilds/win32-x64
           if-no-files-found: error

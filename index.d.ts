@@ -1,4 +1,4 @@
-// Type definitions for stove-pcsdk.js — unofficial Node.js / Electron bindings for the STOVE PC SDK.
+// Type definitions for stovesdk.js — unofficial Node.js / Electron bindings for the STOVE PC SDK.
 
 /** Result of a synchronous SDK call. */
 export interface SdkResult {
@@ -195,7 +195,7 @@ export interface StovePcSdk {
 }
 
 /** File name of the compiled addon. */
-export declare const ADDON_FILE: 'stove_pcsdk.node'
+export declare const ADDON_FILE: 'stovesdk.node'
 
 /** Paths `load()` tries, in order. */
 export declare function candidateAddonPaths(env?: NodeJS.ProcessEnv, baseDir?: string): string[]

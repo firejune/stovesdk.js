@@ -1,4 +1,4 @@
-// stove-pcsdk.js — Node-API bridge to the STOVE PC SDK (Windows x64).
+// stovesdk.js — Node-API bridge to the STOVE PC SDK (Windows x64).
 //
 // Scope: a thin, policy-free wrapper. Every exported function maps onto one SDK entry point (or
 // the fixed Base init chain) and reports what the SDK answered. What a host application does
@@ -33,7 +33,7 @@
 // STOVE_PCSDK_SYNTAX_CHECK lets a non-Windows compiler run `-fsyntax-only` over this file with a
 // stub <windows.h> (see tools/syntax-check.sh). It is never defined in a real build.
 #if !defined(_WIN32) && !defined(STOVE_PCSDK_SYNTAX_CHECK)
-#error "stove-pcsdk.js is Windows-only; binding.gyp skips this target on other platforms."
+#error "stovesdk.js is Windows-only; binding.gyp skips this target on other platforms."
 #endif
 
 #include <windows.h>
@@ -330,7 +330,7 @@ Napi::Object ResultToObject(Napi::Env env, const ResultSnapshot& r, bool isCallb
 
 // Error shape: Error & { step, sdk, method, code, externalError }.
 Napi::Error MakeSdkError(Napi::Env env, const char* step, const ResultSnapshot& r) {
-  std::string message = std::string("[stove-pcsdk] ") + step + " failed";
+  std::string message = std::string("[stovesdk] ") + step + " failed";
   if (!r.sdkName.empty()) {
     message += " (" + r.sdkName + " method " + std::to_string(r.methodCode) + " code " + std::to_string(r.resultCode) + ")";
   }
@@ -346,7 +346,7 @@ Napi::Error MakeSdkError(Napi::Env env, const char* step, const ResultSnapshot& 
 
 // Addon-level error (no SDK call was made): Error & { step, sdk: '', method: 0, code < 0 }.
 Napi::Error MakeStateError(Napi::Env env, const char* step, int32_t code, const char* what) {
-  Napi::Error err = Napi::Error::New(env, std::string("[stove-pcsdk] ") + step + ": " + what);
+  Napi::Error err = Napi::Error::New(env, std::string("[stovesdk] ") + step + ": " + what);
   err.Set("step", Napi::String::New(env, step));
   err.Set("sdk", Napi::String::New(env, ""));
   err.Set("method", Napi::Number::New(env, 0));
@@ -901,4 +901,4 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
 
 }  // namespace
 
-NODE_API_MODULE(stove_pcsdk, Init)
+NODE_API_MODULE(stovesdk, Init)

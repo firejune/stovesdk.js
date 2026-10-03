@@ -49,7 +49,7 @@ read-only default: `release.yml` declares per job the write scopes it needs.
 3. Read the diff — the version and the generated changelog are the whole review.
 4. **Approve the `ci` run** on that pull request. It is already there and sitting in
    `action_required`, so the required `test` check is blocked until you do:
-   `gh api -X POST repos/firejune/stove-pcsdk.js/actions/runs/<id>/approve`, or
+   `gh api -X POST repos/firejune/stovesdk.js/actions/runs/<id>/approve`, or
    **Approve and run** in the Actions tab. See below for why.
 5. **Merge it.** That is the cut.
 6. Watch the second `release` run: it tags `vX.Y.Z` and creates the GitHub release.
@@ -65,9 +65,9 @@ tagged tree, and **attached to the GitHub release by hand**:
 ```sh
 git checkout vX.Y.Z
 npm ci && npm run check-sdk && npm run build && npm run smoke
-mkdir -p prebuilds/win32-x64 && cp build/Release/stove_pcsdk.node prebuilds/win32-x64/
+mkdir -p prebuilds/win32-x64 && cp build/Release/stovesdk.node prebuilds/win32-x64/
 (cd prebuilds/win32-x64 && sha256sum ./* > SHA256SUMS)
-gh release upload vX.Y.Z prebuilds/win32-x64/stove_pcsdk.node prebuilds/win32-x64/SHA256SUMS
+gh release upload vX.Y.Z prebuilds/win32-x64/stovesdk.node prebuilds/win32-x64/SHA256SUMS
 ```
 
 Only the addon is attached — never the SDK's DLLs, which are not ours to

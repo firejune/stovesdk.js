@@ -8,7 +8,7 @@
 //      no-op uninitialize().
 // Nothing initializes the SDK — that needs a STOVE client session on the machine.
 //
-//   node tools/smoke.js [path/to/stove_pcsdk.node]
+//   node tools/smoke.js [path/to/stovesdk.node]
 
 const path = require('path')
 const { load } = require('..')

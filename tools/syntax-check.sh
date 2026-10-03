@@ -1,5 +1,5 @@
 #!/bin/sh
-# Parses src/stove_pcsdk.cc with clang `-fsyntax-only` on a non-Windows machine, against the real
+# Parses src/stovesdk.cc with clang `-fsyntax-only` on a non-Windows machine, against the real
 # SDK headers (STOVE_PCSDK_DIR or ./sdk) and a stub <windows.h>. It catches typos, wrong SDK
 # accessor names and N-API misuse before the code reaches a Windows toolchain. It is NOT a build:
 # nothing is linked, and MSVC-only behaviour is not exercised.
@@ -16,7 +16,7 @@ NODE_INC="${NODE_INCLUDE_DIR:-$(dirname "$(dirname "$(command -v node)")")/inclu
 STUB=$(mktemp -d)
 trap 'rm -rf "$STUB"' EXIT
 cat > "$STUB/windows.h" <<'EOF'
-// Minimal stand-in for <windows.h>: only what src/stove_pcsdk.cc and the SDK headers touch.
+// Minimal stand-in for <windows.h>: only what src/stovesdk.cc and the SDK headers touch.
 #pragma once
 #include <cstdint>
 #define __cdecl
@@ -30,5 +30,5 @@ clang++ -fsyntax-only -std=c++17 -fshort-wchar -fdeclspec -fms-extensions \
   -DSTOVE_PCSDK_SYNTAX_CHECK -DNAPI_VERSION=8 -DNAPI_DISABLE_CPP_EXCEPTIONS \
   -I "$STUB" -I "$NAPI_INC" -I "$NODE_INC" \
   -I "$SDK_DIR" -I "$SDK_DIR/BaseSDK/Deploy/Include" -I "$SDK_DIR/OwnershipSDK/Deploy/Include" -I "$SDK_DIR/GameSupportSDK/Deploy/Include" \
-  "$ROOT/src/stove_pcsdk.cc"
-echo "[syntax-check] OK: src/stove_pcsdk.cc parses against the SDK headers at $SDK_DIR"
+  "$ROOT/src/stovesdk.cc"
+echo "[syntax-check] OK: src/stovesdk.cc parses against the SDK headers at $SDK_DIR"

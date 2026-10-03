@@ -5,11 +5,11 @@ this repository. [CLAUDE.md](CLAUDE.md) points here; this file is the one copy.
 
 ## What this is
 
-`stove-pcsdk.js` is an unofficial N-API addon plus a thin JS entry and TypeScript
+`stovesdk.js` is an unofficial N-API addon plus a thin JS entry and TypeScript
 typings for the **STOVE PC SDK**, so Node.js and Electron games can call it the way
 `steamworks.js` lets them call Steamworks. [README.md](README.md) is the user-facing
 contract (build, usage, API table, error codes, threading model);
-[`index.d.ts`](index.d.ts) is the typed contract; [`src/stove_pcsdk.cc`](src/stove_pcsdk.cc)
+[`index.d.ts`](index.d.ts) is the typed contract; [`src/stovesdk.cc`](src/stovesdk.cc)
 is the whole native side.
 
 ## The doctrine
@@ -43,7 +43,7 @@ is the whole native side.
 
 - CommonJS, Node >= 18, no runtime dependencies. The JS entry loads the addon lazily
   (`load()`), so requiring the package off Windows does not throw.
-- A public API change moves four places together: `src/stove_pcsdk.cc`,
+- A public API change moves four places together: `src/stovesdk.cc`,
   `index.d.ts`, the README API table, and `test/types-usage.ts` (the compile-only
   check of the typings). `tools/smoke.js` checks the export surface of a built addon.
 - `files` in `package.json` is the allowlist of what ships. A runtime file outside it

@@ -21,14 +21,14 @@ if (mode === 'version') {
 
 const missing = missingSdkFiles(sdkDir)
 if (missing.length) {
-  process.stderr.write(`[stove-pcsdk] STOVE PC SDK not found at ${sdkDir}\n`)
-  process.stderr.write('[stove-pcsdk] Place the SDK under sdk/ or set STOVE_PCSDK_DIR (see sdk/README.md). Missing:\n')
+  process.stderr.write(`[stovesdk] STOVE PC SDK not found at ${sdkDir}\n`)
+  process.stderr.write('[stovesdk] Place the SDK under sdk/ or set STOVE_PCSDK_DIR (see sdk/README.md). Missing:\n')
   for (const file of missing) process.stderr.write(`  - ${file}\n`)
   process.exit(1)
 }
 
 if (mode === 'check') {
-  process.stdout.write(`[stove-pcsdk] SDK layout OK at ${sdkDir} (version ${readSdkVersion(sdkDir)})\n`)
+  process.stdout.write(`[stovesdk] SDK layout OK at ${sdkDir} (version ${readSdkVersion(sdkDir)})\n`)
   process.exit(0)
 }
 
