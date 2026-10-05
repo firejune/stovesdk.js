@@ -35,7 +35,7 @@ test('resolveAddonPath: returns the first existing candidate', () => {
 test('resolveAddonPath: throws a coded error listing every candidate when none exists', () => {
   assert.throws(
     () => api.resolveAddonPath({}, root, () => false),
-    err => err.code === 'STOVE_PCSDK_ADDON_NOT_FOUND' && err.message.includes('build/Release') && err.message.includes('prebuilds')
+    err => err.code === 'STOVE_PCSDK_ADDON_NOT_FOUND' && err.message.includes(path.join('build', 'Release')) && err.message.includes('prebuilds')
   )
 })
 

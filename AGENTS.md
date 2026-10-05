@@ -63,8 +63,10 @@ SDK file types (`.dll .lib .pdb .node .h`); CI checks the file types, not the wo
 
 ## Verification — run these before you call a unit finished
 
-Off Windows, install with `npm ci --force` (it skips only the package's own
-`os`/`cpu` check). These are the commands CI's `test` job runs:
+Off Windows, install with `npm ci --force --ignore-scripts` (`--force` skips only the
+package's own `os`/`cpu` check; `--ignore-scripts` is needed because the root
+`binding.gyp` makes npm run an implicit `node-gyp rebuild` on install). These are the
+commands CI's `test` job runs:
 
 | Command | Checks |
 | --- | --- |
@@ -72,7 +74,7 @@ Off Windows, install with `npm ci --force` (it skips only the package's own
 | `npm run typecheck` | `tsc --noEmit` over `test/tsconfig.json`: `strict`, `skipLibCheck: false`, so `index.d.ts` itself is compiled together with a usage file |
 | `git ls-files '*.js' \| xargs -n1 node --check` | syntax of every tracked script |
 | `sh tools/syntax-check.sh` | *(local only, needs the SDK headers and clang)* parses the C++ against the real SDK headers — a pre-flight, not a build |
-| `npm run build && npm run smoke` | *(Windows x64 with the SDK only)* the real build and a load-only smoke of the addon |
+| `npm run build && npm run smoke` | *(Windows x64 with the SDK only)* the real build and a load-only smoke of the addon; the smoke needs the three SDK DLLs copied beside the `.node` first ([README](README.md), *Build*) |
 
 A change to `src/` is not verified by CI at all — CI cannot compile it. Say in the
 pull request which of the last two you ran, and their output.

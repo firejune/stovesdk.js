@@ -64,7 +64,9 @@ tagged tree, and **attached to the GitHub release by hand**:
 
 ```sh
 git checkout vX.Y.Z
-npm ci && npm run check-sdk && npm run build && npm run smoke
+npm ci --ignore-scripts && npm run check-sdk && npm run build
+for m in BaseSDK OwnershipSDK GameSupportSDK; do cp "$(node tools/sdk-dir.js)/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/; done
+npm run smoke
 mkdir -p prebuilds/win32-x64 && cp build/Release/stovesdk.node prebuilds/win32-x64/
 (cd prebuilds/win32-x64 && sha256sum ./* > SHA256SUMS)
 gh release upload vX.Y.Z prebuilds/win32-x64/stovesdk.node prebuilds/win32-x64/SHA256SUMS
