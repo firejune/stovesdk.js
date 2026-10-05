@@ -24,8 +24,10 @@ Redact them to placeholders. This repository is public.
 ## Before you open a pull request
 
 You do not need Windows or the SDK for the JS side. Off Windows, install with
-`npm ci --force`: `package.json` declares `os: ["win32"]` / `cpu: ["x64"]`, and
-`--force` skips only that check. CI's `test` job runs the same commands:
+`npm ci --force --ignore-scripts`: `package.json` declares `os: ["win32"]` /
+`cpu: ["x64"]`, and `--force` skips only that check; `--ignore-scripts` stops the
+`node-gyp rebuild` npm would otherwise run on install because of the root
+`binding.gyp`. CI's `test` job runs the same commands:
 
 ```bash
 npm test                 # node --test, pure JS
@@ -37,7 +39,8 @@ private SDK. Run these yourself and paste their output into the pull request:
 
 ```bash
 sh tools/syntax-check.sh             # any OS with clang and the SDK headers: parse-only pre-flight
-npm run build && npm run smoke       # Windows x64 with the SDK: the real build, then a load-only smoke
+npm run build                        # Windows x64 with the SDK: the real build
+npm run smoke                        # load-only smoke; needs the three SDK DLLs beside the .node (README, Build)
 ```
 
 ## What a change has to clear

@@ -36,15 +36,18 @@ Your use of the SDK is governed by STOVE's own terms.
 On Windows x64 with Visual Studio Build Tools (C++ workload) and Python installed:
 
 ```sh
-npm install
-npm run check-sdk   # verifies sdk/ or STOVE_PCSDK_DIR
-npm run build       # node-gyp rebuild → build/Release/stovesdk.node
-npm run smoke       # loads the addon and exercises the paths that need no STOVE client
+npm ci --ignore-scripts   # dev dependencies only; without the flag npm runs node-gyp rebuild on install
+npm run check-sdk         # verifies sdk/ or STOVE_PCSDK_DIR
+npm run build             # node-gyp rebuild → build/Release/stovesdk.node
+for m in BaseSDK OwnershipSDK GameSupportSDK; do
+  cp "$(node tools/sdk-dir.js)/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/
+done                      # the smoke loads the .node, which needs the three SDK DLLs beside it
+npm run smoke             # loads the addon and exercises the paths that need no STOVE client
 ```
 
 The `.node` hard-imports `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll`. Ship those three DLLs next to the `.node` (or next to your executable) — they are part of the SDK, not of this package.
 
-On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force` (which skips only that platform check — a lockfile out of sync with `package.json` is still refused) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
+On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force --ignore-scripts` (`--force` skips only that platform check — a lockfile out of sync with `package.json` is still refused; `--ignore-scripts` stops the implicit `node-gyp rebuild` that the root `binding.gyp` triggers on install) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
 
 ## Usage
 
