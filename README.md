@@ -33,7 +33,7 @@ Your use of the SDK is governed by STOVE's own terms.
 
 ## Build
 
-On Windows x64 with Visual Studio Build Tools (C++ workload) and Python installed:
+On Windows x64 with Visual Studio Build Tools (C++ workload) and Python installed. The pinned build tool (node-gyp 13) declares Node `^22.22.2 || ^24.15.0 || >=26` — that is a requirement of the build, not of the addon, whose runtime floor stays Node 18:
 
 ```sh
 npm ci --ignore-scripts   # dev dependencies only; without the flag npm runs node-gyp rebuild on install
@@ -124,6 +124,8 @@ Notes:
 - 64-bit values (`memberNumber`, `purchaseDate`, `updatedAt`) cross as decimal strings so no precision is lost.
 - Synchronous reads (`getUser`, `getGds`) never throw: before `initialize()` they answer `{ ok: false, code: ErrorCode.NOT_INITIALIZED, reason }`.
 - Argument errors throw synchronously (`TypeError` / `RangeError`) before anything reaches the SDK.
+- A stat that has never been written reports `currentValue` as `-2147483648`. That is the SDK's own `int32` value, passed through unchanged.
+- Leave a moment between `uninitialize()` and the next `initialize()`. The STOVE client re-creates its side of the connection after a disconnect, and an immediate re-initialize can answer `{ status: 'restart' }`.
 
 ### Error codes
 

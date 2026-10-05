@@ -72,6 +72,13 @@ mkdir -p prebuilds/win32-x64 && cp build/Release/stovesdk.node prebuilds/win32-x
 gh release upload vX.Y.Z prebuilds/win32-x64/stovesdk.node prebuilds/win32-x64/SHA256SUMS
 ```
 
+Build from a path with no user directory in it. The linker records the absolute path
+of the `.pdb` inside the `.node`, so a checkout under a home directory publishes that
+path with the binary. Mapping a drive letter onto the checkout is enough —
+`subst S: <checkout>`, run the build from `S:\`, then `subst S: /D` — and
+`strings stovesdk.node | grep -i '\.pdb'` shows what went in. The v0.1.0 binary was
+built this way.
+
 Only the addon is attached — never the SDK's DLLs, which are not ours to
 redistribute. Build from the tag, never from a working tree, so the binary is the
 code the release names. [`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml)
