@@ -40,8 +40,9 @@ jobs:
       # `--force` skips exactly one check here: package.json declares
       # `os: ["win32"]` / `cpu: ["x64"]`, and npm refuses to install a root package
       # on a platform it does not list. A lockfile out of sync with package.json is
-      # still refused under `--force`. `--ignore-scripts` because there is nothing
-      # to build on this runner, and no dependency's install script should run.
+      # still refused under `--force`. The package itself compiles nothing on install
+      # (`"gypfile": false`); `--ignore-scripts` keeps any dependency's install script
+      # from running on this runner as well.
       - name: Install dev dependencies
         run: npm ci --no-audit --no-fund --ignore-scripts --force
 

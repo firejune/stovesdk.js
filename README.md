@@ -4,7 +4,7 @@ Unofficial Node.js / Electron bindings for the **STOVE PC SDK** (N-API).
 
 The STOVE PC SDK ships official bindings for C, C#, and C++ only. This project wraps the native SDK so Electron and Node.js games can use it the way `steamworks.js` wraps Steamworks.
 
-> **Status: alpha.** The addon source, JS entry and typings are in place. Prebuilds are not published yet; build it yourself against your own copy of the SDK (see below).
+> **Status: alpha.** The addon source, JS entry and typings are in place. A prebuilt `stovesdk.node` is attached to each [GitHub release](https://github.com/firejune/stovesdk.js/releases); the package is not on npm. See *Install* and *Build* below.
 
 ## Scope
 
@@ -31,12 +31,41 @@ The STOVE PC SDK is **not** included in this repository and is not redistributed
 
 Your use of the SDK is governed by STOVE's own terms.
 
+## Install
+
+Installing the package compiles nothing. `package.json` sets `"gypfile": false`, so npm does not run the implicit `node-gyp rebuild` that a root `binding.gyp` would otherwise trigger, and an install succeeds on a machine with no SDK and no C++ toolchain. The native part is a separate file you place yourself:
+
+1. Install the package from this repository at a release tag — it is not published to npm:
+
+   ```sh
+   npm install github:firejune/stovesdk.js#vX.Y.Z
+   ```
+
+   (v0.1.0, the release before this change, still runs `node-gyp rebuild` on install; add `--ignore-scripts` for that one.)
+
+2. Download `stovesdk.node` and `SHA256SUMS` from the [GitHub release](https://github.com/firejune/stovesdk.js/releases) of the same version, and check the sum (`sha256sum -c SHA256SUMS`, or `CertUtil -hashfile stovesdk.node SHA256`).
+
+3. Put the binary where `load()` looks. In order:
+
+   | Location | How |
+   | --- | --- |
+   | Any path | `load('C:/path/to/stovesdk.node')` |
+   | Any path | `STOVE_PCSDK_ADDON=C:/path/to/stovesdk.node` in the environment |
+   | `node_modules/stovesdk.js/build/Release/` | where `npm run build` puts its output |
+   | `node_modules/stovesdk.js/prebuilds/win32-x64/` | drop the release binary here |
+
+   An Electron app usually ships the `.node` in its own resources, next to the three SDK DLLs it has to ship anyway, and calls `load(path)` with that location. When none of the four places has a file, `load()` throws with code `STOVE_PCSDK_ADDON_NOT_FOUND` and lists the paths it tried.
+
+4. Put the three SDK DLLs next to the `.node` or next to your executable (see *Build*).
+
+Or build the binary yourself, below.
+
 ## Build
 
 On Windows x64 with Visual Studio Build Tools (C++ workload) and Python installed. The pinned build tool (node-gyp 13) declares Node `^22.22.2 || ^24.15.0 || >=26` — that is a requirement of the build, not of the addon, whose runtime floor stays Node 18:
 
 ```sh
-npm ci --ignore-scripts   # dev dependencies only; without the flag npm runs node-gyp rebuild on install
+npm ci                    # dev dependencies; nothing is compiled on install
 npm run check-sdk         # verifies sdk/ or STOVE_PCSDK_DIR
 npm run build             # node-gyp rebuild → build/Release/stovesdk.node
 for m in BaseSDK OwnershipSDK GameSupportSDK; do
@@ -47,7 +76,7 @@ npm run smoke             # loads the addon and exercises the paths that need no
 
 The `.node` hard-imports `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll`. Ship those three DLLs next to the `.node` (or next to your executable) — they are part of the SDK, not of this package.
 
-On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force --ignore-scripts` (`--force` skips only that platform check — a lockfile out of sync with `package.json` is still refused; `--ignore-scripts` stops the implicit `node-gyp rebuild` that the root `binding.gyp` triggers on install) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
+On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force` (`--force` skips only that platform check — a lockfile out of sync with `package.json` is still refused) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
 
 ## Usage
 

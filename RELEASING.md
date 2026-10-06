@@ -64,7 +64,7 @@ tagged tree, and **attached to the GitHub release by hand**:
 
 ```sh
 git checkout vX.Y.Z
-npm ci --ignore-scripts && npm run check-sdk && npm run build
+npm ci && npm run check-sdk && npm run build
 for m in BaseSDK OwnershipSDK GameSupportSDK; do cp "$(node tools/sdk-dir.js)/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/; done
 npm run smoke
 mkdir -p prebuilds/win32-x64 && cp build/Release/stovesdk.node prebuilds/win32-x64/
@@ -95,9 +95,10 @@ When it is authorized, the intended shape is the sibling repositories': publish 
 the same `release` job on the release push, over OIDC trusted publishing (no token,
 provenance attached), on a GitHub-hosted runner, gated by the same checks as the
 `test` job. Two questions have to be settled first: what the tarball carries for the
-native part (a prebuild inside it, or a download from the GitHub release at install
-time), and that `npm pack` still contains nothing from the SDK — CI already refuses
-the latter on every pull request.
+native part — today an install compiles nothing and the consumer places the release
+binary (README, *Install*); a prebuild inside the tarball or a download from the
+GitHub release at install time are the options (#8) — and that `npm pack` still
+contains nothing from the SDK — CI already refuses the latter on every pull request.
 
 ## Why the release pull request's check has to be approved by hand
 
