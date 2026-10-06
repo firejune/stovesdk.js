@@ -5,9 +5,19 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { checkTarball, PREBUILD, SUMS } = require('../tools/check-tarball')
+const { checkTarball, packFiles, PREBUILD, SUMS } = require('../tools/check-tarball')
 
 const source = ['package.json', 'index.js', 'index.d.ts', 'README.md', 'LICENSE', 'binding.gyp', 'lib/sdk-dir.js', 'src/stovesdk.cc', 'tools/sdk-dir.js']
+
+test('packFiles: reads the array shape (npm <= 11) and the object shape (npm >= 12)', () => {
+  const entry = { name: 'stovesdk.js', version: '0.3.0', files: [{ path: 'index.js', size: 1 }, { path: 'package.json', size: 2 }] }
+  const expected = { name: 'stovesdk.js', version: '0.3.0', files: ['index.js', 'package.json'] }
+  assert.deepEqual(packFiles([entry]), expected)
+  assert.deepEqual(packFiles({ 'stovesdk.js': entry }), expected)
+  assert.throws(() => packFiles({}), TypeError)
+  assert.throws(() => packFiles([]), TypeError)
+  assert.throws(() => packFiles('nope'), TypeError)
+})
 
 test('source tarball: clean when it has no binary and nothing from the SDK', () => {
   assert.deepEqual(checkTarball(source), [])
