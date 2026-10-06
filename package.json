@@ -19,12 +19,6 @@
   "main": "index.js",
   "types": "index.d.ts",
   "gypfile": false,
-  "os": [
-    "win32"
-  ],
-  "cpu": [
-    "x64"
-  ],
   "engines": {
     "node": ">=18"
   },

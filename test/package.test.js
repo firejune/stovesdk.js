@@ -15,6 +15,11 @@ test('install runs no build: gypfile is false and there is no install/preinstall
   assert.equal(pkg.scripts.preinstall, undefined)
 })
 
+test('no os/cpu: the install succeeds on the platforms a consumer develops on; load() refuses at runtime instead (#15)', () => {
+  assert.equal(pkg.os, undefined)
+  assert.equal(pkg.cpu, undefined)
+})
+
 test('the explicit build and the two places load() looks still ship', () => {
   assert.equal(pkg.scripts.build, 'node-gyp rebuild --release --arch=x64')
   assert.ok(pkg.files.includes('binding.gyp'), 'binding.gyp must ship so `npm run build` works from an install')

@@ -20,16 +20,15 @@ identifiers, no game policy. Tracked in issue #1.
   release — replacing the manual step in [RELEASING.md](RELEASING.md). Whatever is
   chosen keeps the trust boundary that file states: no pull request ever reaches a
   runner that may hold the SDK.
-- **The install story.** How the native part reaches a consumer. Decided for now
-  (#8): an install compiles nothing (`"gypfile": false`), and the consumer places the
-  binary from the GitHub release where `load()` looks (README, *Install*). A prebuild
-  inside the package or a download at install time come back on the table with npm
-  publishing.
+- **The install story.** How the native part reaches a consumer. Decided (#8, #15):
+  an install compiles nothing (`"gypfile": false`); the npm package carries the
+  Windows prebuild where `load()` looks, and a git-tag install takes it from the
+  GitHub release (README, *Install*).
+- **npm.** Published as `stovesdk.js` from `publish.yml` over trusted publishing, by
+  hand once a release carries its prebuild (#15, RELEASING.md *Publishing*).
 
 ## Later
 
-- **npm publishing** — not authorized today. RELEASING.md *Publishing* says what has
-  to be settled first.
 - **API coverage** beyond ownership, achievements and stats, driven by what consumers
   ask for rather than by the size of the SDK.
 - **1.0** — when a consumer has shipped on it and the API has stopped moving.

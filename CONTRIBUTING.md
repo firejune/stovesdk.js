@@ -23,9 +23,8 @@ Redact them to placeholders. This repository is public.
 
 ## Before you open a pull request
 
-You do not need Windows or the SDK for the JS side. Off Windows, install with
-`npm ci --force`: `package.json` declares `os: ["win32"]` / `cpu: ["x64"]`, and
-`--force` skips only that check. Nothing is compiled on install (`"gypfile": false`).
+You do not need Windows or the SDK for the JS side: `npm ci` on any platform (nothing
+is compiled on install — `"gypfile": false` — and the package declares no `os`/`cpu`).
 CI's `test` job runs the same commands:
 
 ```bash

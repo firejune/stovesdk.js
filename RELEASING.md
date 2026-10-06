@@ -2,8 +2,10 @@
 
 The cut is one click: merge the release pull request. Everything either side of that
 click is [`.github/workflows/release.yml`](.github/workflows/release.yml). A release
-today is a version, a `CHANGELOG.md` entry, a `vX.Y.Z` tag and a GitHub release.
-**It is not an npm publish** — see [Publishing](#publishing).
+is a version, a `CHANGELOG.md` entry, a `vX.Y.Z` tag and a GitHub release — and then,
+by hand and in this order, the Windows prebuild attached to that release
+([Prebuilt binaries](#prebuilt-binaries)) and the npm publish of the tarball that carries
+it ([Publishing](#publishing)).
 
 ## The loop
 
@@ -53,7 +55,9 @@ read-only default: `release.yml` declares per job the write scopes it needs.
    **Approve and run** in the Actions tab. See below for why.
 5. **Merge it.** That is the cut.
 6. Watch the second `release` run: it tags `vX.Y.Z` and creates the GitHub release.
-7. Attach the prebuilt binary, if there is one for this version — next section.
+7. Attach the prebuilt binary — next section.
+8. Publish to npm — [Publishing](#publishing). The publish takes the binary from the
+   release, so it cannot run before step 7.
 
 ## Prebuilt binaries
 
@@ -87,18 +91,46 @@ CI the SDK, and [ROADMAP.md](ROADMAP.md) tracks the decision.
 
 ## Publishing
 
-**npm publishing is not authorized for this package.** `release.yml` has no publish
-step, no npm token and no `id-token: write`, and must not gain any of them until the
-maintainer decides otherwise. Do not run `npm publish` by hand either.
+Publishing is [`.github/workflows/publish.yml`](.github/workflows/publish.yml),
+dispatched by hand after the prebuild is attached:
 
-When it is authorized, the intended shape is the sibling repositories': publish from
-the same `release` job on the release push, over OIDC trusted publishing (no token,
-provenance attached), on a GitHub-hosted runner, gated by the same checks as the
-`test` job. Two questions have to be settled first: what the tarball carries for the
-native part — today an install compiles nothing and the consumer places the release
-binary (README, *Install*); a prebuild inside the tarball or a download from the
-GitHub release at install time are the options (#8) — and that `npm pack` still
-contains nothing from the SDK — CI already refuses the latter on every pull request.
+```sh
+gh workflow run publish.yml -f tag=vX.Y.Z    # add -f dry-run=true to pack and verify without publishing
+gh run watch "$(gh run list --workflow publish --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+The job checks out the tag and checks that it names the `package.json` version;
+downloads `stovesdk.node` and `SHA256SUMS` from the GitHub release and verifies the
+checksum; runs the unit tests and the typings; packs, and checks with
+`tools/check-tarball.js` that the tarball carries exactly that one binary and nothing
+from the SDK; then `npm publish` over **OIDC trusted publishing** — no npm token exists
+in the repository, npm attaches provenance, and the runner is GitHub-hosted (npm does
+not support OIDC from self-hosted runners). The published package therefore carries
+the prebuild at `prebuilds/win32-x64/`, the last place `load()` looks; a git-tag
+install carries no binary (README, *Install*).
+
+The publish is deliberately not a step of `release.yml`, which has no publish step,
+no token and no `id-token: write` and must not gain any: the prebuild is compiled
+against the private SDK outside CI after the tag exists, so a publish on the release
+push would have nothing to ship.
+
+### One-time setup (maintainer, npmjs.com)
+
+npm's trusted publisher is configured in the package's settings on npmjs.com, so the
+package has to exist there before the workflow can publish — the first version is
+published by hand. From the tag, with the attached `stovesdk.node` and `SHA256SUMS`
+placed in `prebuilds/win32-x64/`:
+
+```sh
+npm pack --dry-run --json --ignore-scripts > /tmp/pack.json && node tools/check-tarball.js /tmp/pack.json --with-prebuild
+npm publish --access public
+```
+
+Then, in the package's settings, add a trusted publisher: **GitHub Actions**, owner
+`firejune`, repository `stovesdk.js`, workflow filename `publish.yml`, no environment.
+A trusted publisher cannot be edited once created, so renaming the workflow means
+adding a new one. Trusted publishing needs npm CLI 11.5.1 or later; the workflow
+upgrades npm because Node 22 bundles npm 10.
 
 ## Why the release pull request's check has to be approved by hand
 
