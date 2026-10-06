@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/firejune/stovesdk.js/compare/v0.3.0...v0.3.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **publish:** read both shapes of `npm pack --json`, pin the workflow's npm to 11 ([#18](https://github.com/firejune/stovesdk.js/issues/18)) ([a0a269b](https://github.com/firejune/stovesdk.js/commit/a0a269bd08895487825e2fc09df241a942f69ba4)), closes [#15](https://github.com/firejune/stovesdk.js/issues/15)
+
 ## [0.3.0](https://github.com/firejune/stovesdk.js/compare/v0.2.0...v0.3.0) (2026-10-06)
 
 
