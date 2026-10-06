@@ -197,6 +197,9 @@ export interface StovePcSdk {
 /** File name of the compiled addon. */
 export declare const ADDON_FILE: 'stovesdk.node'
 
+/** The SDK DLLs the addon imports: `BaseSDK.dll`, `OwnershipSDK.dll`, `GameSupportSDK.dll`. They ship with the SDK, not with this package. */
+export declare const SDK_DLLS: readonly string[]
+
 /** Paths `load()` tries, in order. */
 export declare function candidateAddonPaths(env?: NodeJS.ProcessEnv, baseDir?: string): string[]
 
@@ -204,7 +207,35 @@ export declare function candidateAddonPaths(env?: NodeJS.ProcessEnv, baseDir?: s
 export declare function resolveAddonPath(env?: NodeJS.ProcessEnv, baseDir?: string, exists?: (p: string) => boolean): string
 
 /**
+ * Error `load()` throws when the addon file exists but cannot be loaded because one or more of
+ * {@link SDK_DLLS} is next to neither the addon nor the host executable.
+ */
+export interface DllNotFoundError extends Error {
+  code: 'STOVE_PCSDK_DLL_NOT_FOUND'
+  /** The DLL file names that were not found. */
+  missing: string[]
+  /** The directories that were checked: the addon's and the host executable's. */
+  searched: string[]
+  /** Node's own `ERR_DLOPEN_FAILED` error. */
+  cause: Error
+}
+
+/**
+ * Which of {@link SDK_DLLS} are found neither in the directory of `addonPath` nor in that of
+ * `execPath` (default `process.execPath`). Empty when all three are present.
+ */
+export declare function missingSdkDlls(addonPath: string, execPath?: string, exists?: (p: string) => boolean): string[]
+
+/**
+ * The error `load()` throws when `require(addonPath)` threw `err`: a {@link DllNotFoundError}
+ * when `err` is `ERR_DLOPEN_FAILED` and an SDK DLL is missing, otherwise `err` itself.
+ */
+export declare function explainLoadError(err: unknown, addonPath: string, execPath?: string, exists?: (p: string) => boolean): unknown
+
+/**
  * Loads the native addon (cached after the first call). Throws with code
- * `STOVE_PCSDK_UNSUPPORTED_PLATFORM` off Windows and `STOVE_PCSDK_ADDON_NOT_FOUND` when no build exists.
+ * `STOVE_PCSDK_UNSUPPORTED_PLATFORM` off Windows, `STOVE_PCSDK_ADDON_NOT_FOUND` when no build
+ * exists, and `STOVE_PCSDK_DLL_NOT_FOUND` ({@link DllNotFoundError}) when the addon is there but
+ * an SDK DLL is not. Any other load failure is rethrown as Node reported it.
  */
 export declare function load(addonPath?: string): StovePcSdk

@@ -70,3 +70,57 @@ test('readSdkVersion: trims the VERSION file, falls back to "unknown"', () => {
   assert.equal(sdkDir.readSdkVersion('/s', () => '   '), 'unknown')
   assert.equal(sdkDir.readSdkVersion('/s', () => { throw new Error('ENOENT') }), 'unknown')
 })
+
+test('SDK_DLLS: the three SDK modules, as DLL file names', () => {
+  assert.deepEqual([...api.SDK_DLLS], ['BaseSDK.dll', 'OwnershipSDK.dll', 'GameSupportSDK.dll'])
+  assert.ok(Object.isFrozen(api.SDK_DLLS))
+})
+
+const addon = path.resolve('/app/resources/stovesdk.node')
+const exe = path.resolve('/app/game.exe')
+const dlopenFailed = () => Object.assign(new Error('The specified module could not be found.'), { code: 'ERR_DLOPEN_FAILED' })
+
+test('missingSdkDlls: empty when every DLL sits next to the addon or next to the executable', () => {
+  assert.deepEqual(api.missingSdkDlls(addon, exe, () => true), [])
+  const nextToExe = p => path.dirname(p) === path.dirname(exe)
+  assert.deepEqual(api.missingSdkDlls(addon, exe, nextToExe), [])
+  const split = p => p === path.join(path.dirname(addon), 'BaseSDK.dll') || path.dirname(p) === path.dirname(exe)
+  assert.deepEqual(api.missingSdkDlls(addon, exe, split), [])
+})
+
+test('missingSdkDlls: names each DLL absent from both directories, in SDK order', () => {
+  const onlyBase = p => path.basename(p) === 'BaseSDK.dll'
+  assert.deepEqual(api.missingSdkDlls(addon, exe, onlyBase), ['OwnershipSDK.dll', 'GameSupportSDK.dll'])
+  assert.deepEqual(api.missingSdkDlls(addon, exe, () => false), [...api.SDK_DLLS])
+})
+
+test('explainLoadError: ERR_DLOPEN_FAILED with a DLL missing becomes STOVE_PCSDK_DLL_NOT_FOUND', () => {
+  const original = dlopenFailed()
+  const onlyBase = p => path.basename(p) === 'BaseSDK.dll'
+  const err = api.explainLoadError(original, addon, exe, onlyBase)
+  assert.notEqual(err, original)
+  assert.equal(err.code, 'STOVE_PCSDK_DLL_NOT_FOUND')
+  assert.deepEqual(err.missing, ['OwnershipSDK.dll', 'GameSupportSDK.dll'])
+  assert.deepEqual(err.searched, [path.dirname(addon), path.dirname(exe)])
+  assert.equal(err.cause, original)
+  assert.ok(err.message.includes('OwnershipSDK.dll') && err.message.includes('GameSupportSDK.dll'))
+  assert.ok(err.message.includes(path.dirname(addon)) && err.message.includes(path.dirname(exe)))
+  assert.ok(err.message.includes('next to the addon'))
+})
+
+test('explainLoadError: one directory when the addon sits next to the executable', () => {
+  const beside = path.join(path.dirname(exe), api.ADDON_FILE)
+  const err = api.explainLoadError(dlopenFailed(), beside, exe, () => false)
+  assert.deepEqual(err.searched, [path.dirname(exe)])
+  assert.ok(err.message.includes(' was not found') === false && err.message.includes(' were not found'))
+})
+
+test('explainLoadError: returns the original error when every DLL is present or the code is another', () => {
+  const original = dlopenFailed()
+  assert.equal(api.explainLoadError(original, addon, exe, () => true), original)
+  const other = Object.assign(new Error('bad'), { code: 'ERR_INVALID_ARG_TYPE' })
+  assert.equal(api.explainLoadError(other, addon, exe, () => false), other)
+  const plain = new Error('no code')
+  assert.equal(api.explainLoadError(plain, addon, exe, () => false), plain)
+  assert.equal(api.explainLoadError(undefined, addon, exe, () => false), undefined)
+})

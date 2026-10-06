@@ -74,7 +74,7 @@ done                      # the smoke loads the .node, which needs the three SDK
 npm run smoke             # loads the addon and exercises the paths that need no STOVE client
 ```
 
-The `.node` hard-imports `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll`. Ship those three DLLs next to the `.node` (or next to your executable) — they are part of the SDK, not of this package.
+The `.node` hard-imports `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll`. Ship those three DLLs next to the `.node` (or next to your executable) — they are part of the SDK, not of this package. When one is in neither place, `load()` throws with code `STOVE_PCSDK_DLL_NOT_FOUND` naming the missing files and the two directories it checked (see *`load()` errors*).
 
 On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force` (`--force` skips only that platform check — a lockfile out of sync with `package.json` is still refused) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
 
@@ -83,7 +83,7 @@ On other platforms the JS side still works for development, but there is nothing
 ```js
 const { load, ErrorCode } = require('stovesdk.js')
 
-const stove = load() // throws off Windows or when no build/prebuild exists
+const stove = load() // throws off Windows, when no build/prebuild exists, or when an SDK DLL is missing (see `load()` errors)
 
 // The SDK delivers every asynchronous result through its callback pump.
 // Run it on the thread that initializes the SDK (the Electron main process), ~16 ms.
@@ -166,6 +166,18 @@ Rejected Promises carry `step`, `sdk`, `method`, `code` and `externalError`. `co
 | `ALREADY_INITIALIZED` | `-2` | `initialize()` called while the SDK is up |
 | `IN_PROGRESS` | `-3` | the same kind of call is already in flight |
 | `ABORTED` | `-4` | a pending Promise was discarded by `uninitialize()` |
+
+### `load()` errors
+
+`load()` throws synchronously; each error carries a string `code`:
+
+| `code` | When |
+| --- | --- |
+| `STOVE_PCSDK_UNSUPPORTED_PLATFORM` | not Windows |
+| `STOVE_PCSDK_ADDON_NOT_FOUND` | no `stovesdk.node` at the path given, in `STOVE_PCSDK_ADDON`, or in `build/Release/` / `prebuilds/win32-x64/`; the message lists the paths tried |
+| `STOVE_PCSDK_DLL_NOT_FOUND` | the addon exists but one of `BaseSDK.dll`, `OwnershipSDK.dll`, `GameSupportSDK.dll` is next to neither the addon nor the host executable; `missing` and `searched` list the files and directories, `cause` is Node's `ERR_DLOPEN_FAILED` |
+
+When all three DLLs are present and the load still fails, the original error is thrown unchanged — the cause is then outside what this module can see, such as the DLLs' own imports (the SDK requires the VC++ redistributable) or a binary built for another architecture.
 
 ## Threading model
 
