@@ -2,10 +2,10 @@
 
 The cut is one click: merge the release pull request. Everything either side of that
 click is [`.github/workflows/release.yml`](.github/workflows/release.yml). A release
-is a version, a `CHANGELOG.md` entry, a `vX.Y.Z` tag and a GitHub release — and then,
-by hand and in this order, the Windows prebuild attached to that release
-([Prebuilt binaries](#prebuilt-binaries)) and the npm publish of the tarball that carries
-it ([Publishing](#publishing)).
+is a version, a `CHANGELOG.md` entry, a `vX.Y.Z` tag and a GitHub release — and then
+two workflows dispatched by hand, in this order: `prebuild.yml`, which builds the Windows
+prebuild and attaches it to that release ([Prebuilt binaries](#prebuilt-binaries)), and
+`publish.yml`, which publishes the tarball that carries it ([Publishing](#publishing)).
 
 ## The loop
 
@@ -55,39 +55,50 @@ read-only default: `release.yml` declares per job the write scopes it needs.
    **Approve and run** in the Actions tab. See below for why.
 5. **Merge it.** That is the cut.
 6. Watch the second `release` run: it tags `vX.Y.Z` and creates the GitHub release.
-7. Attach the prebuilt binary — next section.
-8. Publish to npm — [Publishing](#publishing). The publish takes the binary from the
-   release, so it cannot run before step 7.
+7. Dispatch `prebuild.yml` for the tag — next section. It fetches the SDK, builds the
+   tagged commit, smokes it and attaches `stovesdk.node` and `SHA256SUMS`.
+8. Dispatch `publish.yml` — [Publishing](#publishing). The publish takes the binary from
+   the release, so it cannot run before step 7.
 
 ## Prebuilt binaries
 
-The addon is compiled against the private SDK, which no public workflow has access
-to, so **prebuilds are not produced by this repository's CI yet**. For now they are
-built outside this repository, on a maintainer-controlled Windows x64 build, from the
-tagged tree, and **attached to the GitHub release by hand**:
+The prebuild is produced by [`prebuild.yml`](.github/workflows/prebuild.yml) on a
+GitHub-hosted Windows x64 runner, dispatched by hand for the tag once its release exists:
 
 ```sh
-git checkout vX.Y.Z
-npm ci && npm run check-sdk && npm run build
-for m in BaseSDK OwnershipSDK GameSupportSDK; do cp "$(node tools/sdk-dir.js)/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/; done
-npm run smoke
-mkdir -p prebuilds/win32-x64 && cp build/Release/stovesdk.node prebuilds/win32-x64/
-(cd prebuilds/win32-x64 && sha256sum ./* > SHA256SUMS)
-gh release upload vX.Y.Z prebuilds/win32-x64/stovesdk.node prebuilds/win32-x64/SHA256SUMS
+gh workflow run prebuild.yml -f tag=vX.Y.Z    # add -f dry-run=true to build, smoke and stage without uploading
+gh run watch "$(gh run list --workflow prebuild --limit 1 --json databaseId --jq '.[0].databaseId')"
 ```
 
-Build from a path with no user directory in it. The linker records the absolute path
-of the `.pdb` inside the `.node`, so a checkout under a home directory publishes that
-path with the binary. Mapping a drive letter onto the checkout is enough —
-`subst S: <checkout>`, run the build from `S:\`, then `subst S: /D` — and
-`strings stovesdk.node | grep -i '\.pdb'` shows what went in. The v0.1.0 binary was
-built this way.
+The job checks that the tag exists, names a GitHub release, matches that tag's
+`package.json` version and carries no prebuild yet. It fetches the SDK drop pinned in
+[`tools/sdk-manifest.json`](tools/sdk-manifest.json) from the vendor's download CDN with
+[`tools/fetch-sdk.js`](tools/fetch-sdk.js), verifying each archive's SHA-256 before
+extracting it into the runner's temporary directory — a mismatch fails the run; nothing
+is substituted and no hash is rewritten. It builds the exact tagged commit, runs the
+load-only smoke with the three SDK DLLs beside the `.node`, and uploads exactly
+`stovesdk.node` and `SHA256SUMS` to the release. Nothing from the SDK leaves the runner:
+no archive, header, import library, DLL or PDB is uploaded, not even as an Actions
+artifact. The run summary records the built commit, the SDK version and the binary's hash.
 
-Only the addon is attached — never the SDK's DLLs, which are not ours to
-redistribute. Build from the tag, never from a working tree, so the binary is the
-code the release names. [`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml)
-is the skeleton of the eventual CI path; its header lists the open options for giving
-CI the SDK, and [ROADMAP.md](ROADMAP.md) tracks the decision.
+The smoke proves that the addon links and loads and that its pure paths behave. It does
+not exercise STOVE login, ownership or achievements — the runner has no STOVE client. That
+check belongs to a consumer, against a real client.
+
+Runs for the same tag are serialised, and an existing asset is never overwritten: a
+dispatch for a tag that already carries the files fails before building. To rebuild on
+purpose, remove the two assets by hand first. The SDK pin and the fetch tool are taken
+from the ref the workflow is dispatched from (`main`), the source from the tag, so an
+older tag can be rebuilt with the current pin; the summary names both commits.
+
+Changing the pin — the version, URLs or hashes in `tools/sdk-manifest.json` — is a pull
+request of its own, never combined with an addon change; the version stays the one the
+addon has been built and smoke-tested against.
+
+A local build (README, *Build*) is for development; release binaries come from the
+workflow. The runner's workspace has no user directory in its path, so the `.pdb` path
+the linker embeds in the `.node` carries none either; the job prints the embedded path
+and fails on one that does.
 
 ## Publishing
 

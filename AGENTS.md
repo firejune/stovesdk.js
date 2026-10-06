@@ -18,11 +18,17 @@ is the whole native side.
   game does when ownership fails, whether it blocks, shows a dialog, switches to a
   demo or quits, belongs to the game. A change that adds a decision on the caller's
   behalf is out of scope, however convenient.
-- **Bring your own SDK.** The SDK is not public and is never committed, packed or
-  redistributed: no headers, import libraries, DLLs, samples or excerpts of its
-  documentation. Builds resolve it from `sdk/` or `STOVE_PCSDK_DIR`
-  ([`tools/sdk-dir.js`](tools/sdk-dir.js) is the one resolver). CI refuses a tracked
-  SDK file or binary and anything of the kind in `npm pack`.
+- **Bring your own SDK.** The vendor serves the SDK's archives from its developer-center
+  download CDN without a credential, and [`tools/fetch-sdk.js`](tools/fetch-sdk.js)
+  fetches the drop pinned in [`tools/sdk-manifest.json`](tools/sdk-manifest.json) for the
+  prebuild, verifying every archive first (#21). That is where this module's contact with
+  the SDK ends: nothing from it is ever committed, packed or redistributed — no headers,
+  import libraries, DLLs, samples or excerpts of its documentation. A public download is a
+  fact about the vendor's hosting, not a licence to redistribute; what governs use is the
+  developer agreement a STOVE Studio account accepts, which this repository does not
+  restate. Builds resolve the SDK from `sdk/` or `STOVE_PCSDK_DIR`
+  ([`tools/sdk-dir.js`](tools/sdk-dir.js) is the one resolver). CI refuses a tracked SDK
+  file or binary and anything of the kind in `npm pack`.
 - **N-API is touched on the JS thread only.** SDK callbacks are plain C function
   pointers on a thread the vendor does not document. They copy their result into a
   mutex-guarded queue; `runCallbacks()` drains it on the JS thread, where Promises
@@ -83,10 +89,12 @@ These are the commands CI's `test` job runs:
 | `npm run typecheck` | `tsc --noEmit` over `test/tsconfig.json`: `strict`, `skipLibCheck: false`, so `index.d.ts` itself is compiled together with a usage file |
 | `git ls-files '*.js' \| xargs -n1 node --check` | syntax of every tracked script |
 | `sh tools/syntax-check.sh` | *(local only, needs the SDK headers and clang)* parses the C++ against the real SDK headers — a pre-flight, not a build |
-| `npm run build && npm run smoke` | *(Windows x64 with the SDK only)* the real build and a load-only smoke of the addon; the smoke needs the three SDK DLLs copied beside the `.node` first ([README](README.md), *Build*) |
+| `npm run build && npm run smoke` | *(Windows x64 with the SDK only)* the real build and a load-only smoke of the addon; the smoke needs the three SDK DLLs copied beside the `.node` first ([README](README.md), *Build*). `node tools/fetch-sdk.js sdk` fetches the pinned SDK drop |
+| `gh workflow run prebuild.yml -f tag=vX.Y.Z -f dry-run=true` | *(a writer, from any branch)* the workflow itself on a GitHub-hosted Windows runner: SDK fetch and checksum verification, build of that **tag's** source, smoke, staging — uploading nothing. It exercises a change to the workflow or the fetch tool, not a change to `src/` on the branch |
 
-A change to `src/` is not verified by CI at all — CI cannot compile it. Say in the
-pull request which of the last two you ran, and their output.
+A change to `src/` is not compiled by the `test` job, and a prebuild dry run builds a
+tag, not a branch. Say in the pull request which of the last three you ran, and their
+output.
 
 ## Issues, pull requests and the agent pipeline
 

@@ -1,91 +1,174 @@
-# Windows x64 prebuild — skeleton.
+# Windows x64 prebuild: fetches the pinned SDK from the vendor, builds the addon from a release
+# tag, smoke-tests the load, and attaches stovesdk.node + SHA256SUMS to that tag's GitHub release.
 #
-# The STOVE PC SDK is not public, so this workflow does NOT download it and defines no secret for
-# it. It expects the SDK to already be present on the runner at STOVE_PCSDK_DIR and fails early
-# with a readable message otherwise. Until SDK access for CI is decided, this job only runs on
-# manual dispatch.
+# How CI gets the SDK (the question this header used to leave open — issue #21): the vendor's
+# PC SDK download page serves plain archives from its developer-center CDN, with no credential.
+# tools/sdk-manifest.json pins the SDK version, the URL and the SHA-256 of each archive, and is
+# reviewed like code. tools/fetch-sdk.js downloads them into $RUNNER_TEMP, refuses any archive
+# whose hash differs (no other version, no rewritten hash, nothing extracted from it), unpacks
+# them there and validates the layout tools/sdk-dir.js expects. Nothing from the SDK is cached,
+# committed, packed, uploaded as an artifact or attached to a release: the only files that leave
+# this runner are the addon and its checksum file. That the downloads are public says nothing
+# about redistribution, which this package does not do (AGENTS.md, *Bring your own SDK*).
 #
-# Open question — how does CI get the SDK? Options under consideration:
-#   A. Self-hosted Windows runner with the SDK pre-installed at a fixed STOVE_PCSDK_DIR.
-#      No secrets, no SDK bytes in GitHub; the maintainer owns the machine.
-#   B. Encrypted SDK archive fetched at build time from a maintainer-controlled location, with the
-#      URL and decryption key held as repository secrets. Works on hosted runners; the SDK still
-#      never enters the repo, but its bytes transit the build.
-#   C. Maintainers build locally and attach prebuilds to releases by hand. Zero CI design, but the
-#      prebuilt .node has no reproducible provenance.
-# Whichever is chosen, this file stays the single place that knows how to compile.
+# What the smoke proves — and does not. tools/smoke.js loads the .node (its SDK imports resolve),
+# checks the export surface and the pure-addon paths (refusals before initialize(), argument
+# validation, no-op pump and uninitialize()). It does not test STOVE login, ownership,
+# achievements or anything else that needs a STOVE client; none runs here.
 #
-# 🔒 Trust boundary — read this before adding a trigger or changing `runs-on`.
-#   - Manual dispatch ONLY. There is no `pull_request`, `pull_request_target`, `push` or
-#     `schedule` trigger, and none may be added: a pull request from a fork must never be
-#     able to start this job, because whatever runner builds it may hold the SDK.
-#   - `workflow_dispatch` needs write access to the repository — that is the real boundary.
-#     On top of it the job refuses any ref other than `main` or a `v*` tag, so a dispatch
-#     by mistake from an unreviewed branch builds nothing. (A dispatch runs the workflow file
-#     of the ref it names, so this `if` guards against accidents, not against a writer.)
-#   - It runs on a GitHub-hosted runner. If option A is ever chosen, the self-hosted runner
-#     must be scoped to this workflow on these refs and must never be offered to a job that
-#     builds untrusted code (pull requests, forks, or any other workflow in this repository).
+# 🔒 Trust boundary — read this before changing a trigger, the runner or the ref logic.
+#   - Manual dispatch ONLY. No `pull_request`, `pull_request_target`, `push` or `schedule`
+#     trigger may be added: a pull request must never be able to start this job. (A tag that
+#     release.yml creates with GITHUB_TOKEN starts no workflow anyway; dispatching this one
+#     after the cut is a deliberate step — RELEASING.md.)
+#   - The release build path is: dispatched from `main` or a `v*` tag, `dry-run` off, for a
+#     `v*` tag that names an existing GitHub release whose version matches package.json and
+#     that carries no prebuild yet. A dry run builds, smokes and stages but uploads nothing; it
+#     may be dispatched from a feature branch to exercise a change to this file.
+#   - The source built is the exact tagged commit, checked out on its own. The SDK pin and the
+#     fetch tool come from the dispatched ref (reviewed on `main`), not from the tag, so an
+#     older tag can be rebuilt with the current pin; the run summary records both.
+#   - GitHub-hosted runner only, and only `contents: write`, which the release upload needs.
+#   - Runs for the same tag are serialised. An existing asset is never overwritten: the job
+#     fails before building if the release already carries stovesdk.node or SHA256SUMS.
 name: prebuild
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach to (vX.Y.Z). Its GitHub release must exist and carry no prebuild yet.
+        required: true
+        type: string
+      dry-run:
+        description: Build, smoke and stage only — upload nothing (may be dispatched from any ref)
+        required: false
+        type: boolean
+        default: false
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: prebuild-${{ inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
   windows-x64:
-    # Reviewed refs only (see the header): a dispatch from a feature branch is refused here.
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+    # A real run only from reviewed refs; a dry run writes nothing, so any ref may exercise it.
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.dry-run || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
+    permissions:
+      contents: write # upload the two assets to the release
     env:
-      # Option A/B would set this to wherever the SDK lands on the runner.
-      STOVE_PCSDK_DIR: ${{ vars.STOVE_PCSDK_DIR }}
+      TAG: ${{ inputs.tag }}
+      DRY_RUN: ${{ inputs.dry-run }}
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - name: The tag names an existing release that carries no prebuild yet
+        run: |
+          set -euo pipefail
+          case "$TAG" in v[0-9]*) ;; *) echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1 ;; esac
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha' >/dev/null || { echo "::error::tag $TAG does not exist"; exit 1; }
+          assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | join(" ")') || { echo "::error::no GitHub release for $TAG"; exit 1; }
+          for f in stovesdk.node SHA256SUMS; do
+            case " $assets " in
+              *" $f "*) echo "::error::release $TAG already carries $f. This workflow never overwrites an asset; remove it by hand first if a rebuild is intended."; exit 1 ;;
+            esac
+          done
+          echo "release $TAG exists; assets: [${assets:-none}]"
+
+      # This workflow's own ref: the SDK pin and the fetch tool, as reviewed on main.
       - uses: actions/checkout@v4
+        with:
+          path: tools-src
+          persist-credentials: false
+
+      # The exact tagged commit — the code the release names — in its own directory.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          path: release-src
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Locate the STOVE PC SDK (must already be on the runner)
+      - name: The tag matches package.json's version
         run: |
-          set -eu
-          if [ -z "${STOVE_PCSDK_DIR:-}" ]; then
-            echo "::error::STOVE_PCSDK_DIR is not set — the SDK is not public and this workflow does not download it. See the header of this file for the options."
+          set -euo pipefail
+          version=$(node -p "require('./release-src/package.json').version")
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match package.json version $version at that tag"
             exit 1
           fi
-          node tools/sdk-dir.js check
+          echo "BUILD_SHA=$(git -C release-src rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "PIN_SHA=$(git -C tools-src rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          echo "building stovesdk.js@$version from $TAG"
+
+      - name: Fetch the pinned SDK from the vendor and verify every archive
+        run: |
+          set -euo pipefail
+          node tools-src/tools/fetch-sdk.js "$RUNNER_TEMP/stove-sdk"
+          echo "STOVE_PCSDK_DIR=$RUNNER_TEMP/stove-sdk" >> "$GITHUB_ENV"
+          echo "SDK_VERSION=$(cat "$RUNNER_TEMP/stove-sdk/VERSION")" >> "$GITHUB_ENV"
+
+      - name: The SDK layout is what binding.gyp expects
+        working-directory: release-src
+        run: node tools/sdk-dir.js check
 
       - name: Install build dependencies
+        working-directory: release-src
         run: npm ci --no-audit --no-fund --ignore-scripts
 
       - name: Build stovesdk.node (x64, Release)
+        working-directory: release-src
         run: npm run build
 
-      - name: Smoke (load-only; no STOVE client on the runner)
+      # Load-only: the .node needs the three SDK DLLs beside it to load. No STOVE client here.
+      - name: Smoke — the addon loads and its pure paths behave
+        working-directory: release-src
         run: |
-          set -eu
-          # The .node imports the SDK DLLs; place them beside it for the load.
+          set -euo pipefail
           for m in BaseSDK OwnershipSDK GameSupportSDK; do
-            cp "$STOVE_PCSDK_DIR/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/
+            cp "$(node tools/sdk-dir.js)/$m/Deploy/Bin/x64/Release/$m.dll" build/Release/
           done
           node tools/smoke.js build/Release/stovesdk.node
 
-      - name: Stage prebuild (addon only — the SDK DLLs are not redistributed by this package)
+      - name: Stage exactly the two files that leave this runner
         run: |
-          set -eu
-          mkdir -p prebuilds/win32-x64
-          cp build/Release/stovesdk.node prebuilds/win32-x64/
-          (cd prebuilds/win32-x64 && sha256sum ./* | tee SHA256SUMS)
+          set -euo pipefail
+          out="$RUNNER_TEMP/prebuild"
+          mkdir -p "$out"
+          cp release-src/build/Release/stovesdk.node "$out/"
+          (cd "$out" && sha256sum ./stovesdk.node > SHA256SUMS && cat SHA256SUMS)
+          staged=$(ls "$out" | sort | tr '\n' ' ')
+          if [ "$staged" != "SHA256SUMS stovesdk.node " ]; then
+            echo "::error::staging holds [$staged]; expected exactly SHA256SUMS stovesdk.node"
+            exit 1
+          fi
+          pdb=$(grep -a -o -E '[A-Za-z]:\\[[:print:]]*\.pdb' "$out/stovesdk.node" | head -n 1 || true)
+          echo "embedded pdb path: ${pdb:-none}"
+          case "$pdb" in *Users*) echo "::error::the binary embeds a user directory path: $pdb"; exit 1 ;; esac
+          echo "PREBUILD_DIR=$out" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: stovesdk-win32-x64
-          path: prebuilds/win32-x64
-          if-no-files-found: error
+      - name: Attach stovesdk.node and SHA256SUMS to the release
+        if: ${{ !inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "$PREBUILD_DIR/stovesdk.node" "$PREBUILD_DIR/SHA256SUMS" --repo "$GITHUB_REPOSITORY"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "\(.name) \(.size)B"'
+
+      - name: Run summary
+        run: |
+          {
+            echo "## prebuild $TAG"
+            echo "- built commit: \`$BUILD_SHA\`"
+            echo "- SDK: $SDK_VERSION, pinned by tools/sdk-manifest.json at \`$PIN_SHA\`"
+            echo "- stovesdk.node SHA-256: \`$(cut -d' ' -f1 "$PREBUILD_DIR/SHA256SUMS")\`"
+            if [ "$DRY_RUN" = "true" ]; then echo "- uploaded: no (dry run)"; else echo "- uploaded: stovesdk.node, SHA256SUMS → release $TAG"; fi
+          } >> "$GITHUB_STEP_SUMMARY"

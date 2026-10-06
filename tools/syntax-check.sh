@@ -5,6 +5,12 @@
 # nothing is linked, and MSVC-only behaviour is not exercised.
 #
 #   sh tools/syntax-check.sh            (needs: clang++, node_modules/node-addon-api, Node headers)
+#
+# The SDK root is passed with -iquote, not -I: the vendor headers include each other with quoted
+# paths relative to that root ("BaseSDK/Deploy/Include/…"), and a plain -I would also let the C++
+# standard library's `#include <version>` resolve to the drop's VERSION file on a case-insensitive
+# file system (macOS, Windows). binding.gyp's include_dirs are unaffected — MSVC builds have passed
+# with VERSION present.
 set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -29,6 +35,6 @@ clang++ -fsyntax-only -std=c++17 -fshort-wchar -fdeclspec -fms-extensions \
   -Wno-ignored-attributes -Wno-microsoft -Wno-pragma-pack \
   -DSTOVE_PCSDK_SYNTAX_CHECK -DNAPI_VERSION=8 -DNAPI_DISABLE_CPP_EXCEPTIONS \
   -I "$STUB" -I "$NAPI_INC" -I "$NODE_INC" \
-  -I "$SDK_DIR" -I "$SDK_DIR/BaseSDK/Deploy/Include" -I "$SDK_DIR/OwnershipSDK/Deploy/Include" -I "$SDK_DIR/GameSupportSDK/Deploy/Include" \
+  -iquote "$SDK_DIR" -I "$SDK_DIR/BaseSDK/Deploy/Include" -I "$SDK_DIR/OwnershipSDK/Deploy/Include" -I "$SDK_DIR/GameSupportSDK/Deploy/Include" \
   "$ROOT/src/stovesdk.cc"
 echo "[syntax-check] OK: src/stovesdk.cc parses against the SDK headers at $SDK_DIR"

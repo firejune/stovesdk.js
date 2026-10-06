@@ -26,10 +26,10 @@ Windows x64 only, which matches the STOVE PC SDK itself. The addon targets N-API
 
 The STOVE PC SDK is **not** included in this repository and is not redistributed by this package.
 
-1. Download the STOVE PC SDK from the STOVE developer portal under your own developer account.
+1. Download the STOVE PC SDK from the STOVE developer portal under your own developer account — or run `node tools/fetch-sdk.js sdk`, which fetches the drop this module is built against (version, URLs and SHA-256 of each archive are pinned in [`tools/sdk-manifest.json`](tools/sdk-manifest.json); a checksum mismatch fails the fetch).
 2. Place it under [`sdk/`](sdk/README.md), or point `STOVE_PCSDK_DIR` at your copy. The expected layout is documented in `sdk/README.md`; `npm run check-sdk` tells you what is missing.
 
-Your use of the SDK is governed by STOVE's own terms.
+Your use of the SDK is governed by STOVE's own terms — the developer agreement of your STOVE Studio account. That the archives download without a credential does not make them redistributable, and this package does not redistribute them.
 
 ## Install
 
@@ -189,7 +189,7 @@ SDK callbacks are plain C function pointers with no user-data slot, and the vend
 
 ## Prebuilds, publishing and CI
 
-[`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml) is a manually triggered Windows x64 build that expects the SDK to be present on the runner at `STOVE_PCSDK_DIR`. Because the SDK is not public, the workflow does not download it; how CI gets the SDK is an open design question — see the workflow header for the options under consideration. Until it is settled, the prebuild is built by the maintainer and attached to the GitHub release.
+[`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml) is dispatched by hand for a release tag. On a GitHub-hosted Windows x64 runner it fetches the pinned SDK drop from the vendor's download CDN (verifying each archive's checksum first), builds the tagged commit, runs the load-only smoke and attaches `stovesdk.node` and `SHA256SUMS` to the GitHub release — nothing from the SDK leaves the runner. The smoke involves no STOVE client; it proves the addon links and loads, not that it talks to STOVE.
 
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml) publishes a tagged release to npm, by manual dispatch once its prebuild is attached: it takes `stovesdk.node` from the GitHub release, checks it against `SHA256SUMS`, checks that the tarball carries that one binary and nothing from the SDK, and publishes over OIDC trusted publishing with provenance. [RELEASING.md](RELEASING.md) has the sequence.
 
