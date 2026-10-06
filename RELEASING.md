@@ -128,9 +128,13 @@ npm publish --access public
 
 Then, in the package's settings, add a trusted publisher: **GitHub Actions**, owner
 `firejune`, repository `stovesdk.js`, workflow filename `publish.yml`, no environment.
-A trusted publisher cannot be edited once created, so renaming the workflow means
-adding a new one. Trusted publishing needs npm CLI 11.5.1 or later; the workflow
-upgrades npm because Node 22 bundles npm 10.
+Under *Allowed actions* tick **publish directly** — the workflow runs `npm publish`,
+and with staging alone every release would wait for a 2FA approval by hand — and leave
+*manage dist-tags* off: the workflow never runs `npm dist-tag`. A trusted publisher
+cannot be edited once created, so a change of workflow name or permissions means
+adding a new one. The package's *Publishing access* can stay on the strictest 2FA
+option; npm states trusted publishers work under any of them. Trusted publishing needs
+npm CLI 11.5.1 or later; the workflow upgrades npm because Node 22 bundles npm 10.
 
 ## Why the release pull request's check has to be approved by hand
 
