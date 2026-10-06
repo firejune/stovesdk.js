@@ -25,4 +25,4 @@ sdk/
     └── Bin/x64/Release/GameSupportSDK.dll
 ```
 
-`npm run check-sdk` verifies this layout and lists anything missing. The build links the three `.lib` import libraries; at runtime the three `.dll` files must sit next to the compiled `stovesdk.node` or next to your executable.
+`npm run check-sdk` verifies this layout and lists anything missing. `node tools/fetch-sdk.js sdk` fills this directory (it must be empty) with the drop pinned in `tools/sdk-manifest.json`, verifying each archive's SHA-256 before extracting it, and writes `VERSION`. The build links the three `.lib` import libraries; at runtime the three `.dll` files must sit next to the compiled `stovesdk.node` or next to your executable.

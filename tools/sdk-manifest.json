@@ -1,0 +1,19 @@
+{
+  "$comment": "The STOVE PC SDK drop that tools/fetch-sdk.js fetches and verifies (issue #21). Reviewed like code: the version is the one the addon has been built and smoke-tested against, and a change here is a pull request of its own, never combined with an addon change. Each archive is checked against its SHA-256 before extraction; a mismatch fails the fetch and nothing is substituted. The files are the vendor's and are never committed, packed or redistributed.",
+  "version": "3.3.2.19",
+  "source": "STOVE developer-center download CDN (the links behind the PC SDK download page)",
+  "modules": {
+    "BaseSDK": {
+      "url": "https://d2x8kymwjom7h7.cloudfront.net/live/application_no/STATIC/developer-center/Store/BaseSDK_3.3.2.19.zip",
+      "sha256": "92e9a0e0a8522c8ef176769695f79aca89de33ae67c27f7c2f41fd26035f5faa"
+    },
+    "OwnershipSDK": {
+      "url": "https://d2x8kymwjom7h7.cloudfront.net/live/application_no/STATIC/developer-center/Store/OwnershipSDK_3.3.2.19.zip",
+      "sha256": "b542032b9a4a53a2e7d3fdda7a871aeef4a9ea9222cd149deea60b0c29810409"
+    },
+    "GameSupportSDK": {
+      "url": "https://d2x8kymwjom7h7.cloudfront.net/live/application_no/STATIC/developer-center/Store/GameSupportSDK_3.3.2.19.zip",
+      "sha256": "ad3a339fbe28055a88839428333700efa34f3a59590dc3a67583145f437f25e9"
+    }
+  }
+}

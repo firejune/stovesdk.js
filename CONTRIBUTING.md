@@ -32,8 +32,9 @@ npm test                 # node --test, pure JS
 npm run typecheck        # strict tsc over index.d.ts and a usage file
 ```
 
-A change to `src/` or `binding.gyp` cannot be checked by CI — the build needs the
-private SDK. Run these yourself and paste their output into the pull request:
+A change to `src/` or `binding.gyp` is not compiled by CI's `test` job. Run these
+yourself (`node tools/fetch-sdk.js sdk` fetches the pinned SDK drop) and paste their
+output into the pull request:
 
 ```bash
 sh tools/syntax-check.sh             # any OS with clang and the SDK headers: parse-only pre-flight

@@ -14,12 +14,12 @@ identifiers, no game policy. Tracked in issue #1.
 - **A real consumer.** At least one Electron game switches from its own embedded
   addon to this package, with no game-specific code flowing back into the module.
   What it needed and did not find becomes issues here, not patches in the game.
-- **A CI prebuild path.** Decide how a workflow gets the SDK (the options are in the
-  header of [`prebuild.yml`](.github/workflows/prebuild.yml)), then have a tagged
-  release produce the Windows x64 prebuild with a checksum and attach it to the GitHub
-  release — replacing the manual step in [RELEASING.md](RELEASING.md). Whatever is
-  chosen keeps the trust boundary that file states: no pull request ever reaches a
-  runner that may hold the SDK.
+- **A CI prebuild path.** Decided (#21): [`prebuild.yml`](.github/workflows/prebuild.yml)
+  fetches the SDK drop pinned in `tools/sdk-manifest.json` from the vendor's download
+  CDN, verifies it, builds the tag on a GitHub-hosted Windows runner and attaches the
+  prebuild and its checksum to the GitHub release — dispatched by hand after the cut
+  (RELEASING.md). The trust boundary stays: no pull request reaches the job. Dispatching
+  it from the release run automatically is a follow-up.
 - **The install story.** How the native part reaches a consumer. Decided (#8, #15):
   an install compiles nothing (`"gypfile": false`); the npm package carries the
   Windows prebuild where `load()` looks, and a git-tag install takes it from the
