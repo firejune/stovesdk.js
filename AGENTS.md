@@ -37,7 +37,9 @@ is the whole native side.
   `ErrorCode.ABORTED` rather than leaving it hanging.
 - **One build for Node and Electron.** N-API version 8, no per-ABI rebuilds. The `.node`
   hard-imports the three SDK DLLs on purpose (a missing DLL is a catchable error at
-  `require()`, not a crash on first call).
+  `require()`, not a crash on first call). `load()` turns that error into
+  `STOVE_PCSDK_DLL_NOT_FOUND` naming the missing DLLs when they are next to neither the
+  addon nor the host executable, and rethrows anything else untouched.
 - **An install compiles nothing.** `package.json` sets `"gypfile": false`, so npm does
   not turn the root `binding.gyp` into an implicit `node-gyp rebuild`; `npm run build` is
   the only build, and the consumer places the release binary where `load()` looks
