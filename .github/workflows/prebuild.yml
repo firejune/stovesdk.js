@@ -70,7 +70,7 @@ jobs:
       DRY_RUN: ${{ inputs.dry-run }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: The tag names an existing release that carries no prebuild yet
+      - name: The tag names an existing release — and, for a real run, one without a prebuild yet
         run: |
           set -euo pipefail
           case "$TAG" in v[0-9]*) ;; *) echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1 ;; esac
