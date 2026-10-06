@@ -29,8 +29,10 @@
 #     fetch tool come from the dispatched ref (reviewed on `main`), not from the tag, so an
 #     older tag can be rebuilt with the current pin; the run summary records both.
 #   - GitHub-hosted runner only, and only `contents: write`, which the release upload needs.
-#   - Runs for the same tag are serialised. An existing asset is never overwritten: the job
-#     fails before building if the release already carries stovesdk.node or SHA256SUMS.
+#   - Runs for the same tag are serialised. An existing asset is never overwritten: a real
+#     run fails before building if the release already carries stovesdk.node or SHA256SUMS
+#     (a dry run, which uploads nothing, may target such a release — that is how the
+#     workflow is exercised against an existing tag).
 name: prebuild
 
 on:
@@ -74,12 +76,17 @@ jobs:
           case "$TAG" in v[0-9]*) ;; *) echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1 ;; esac
           gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha' >/dev/null || { echo "::error::tag $TAG does not exist"; exit 1; }
           assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | join(" ")') || { echo "::error::no GitHub release for $TAG"; exit 1; }
-          for f in stovesdk.node SHA256SUMS; do
-            case " $assets " in
-              *" $f "*) echo "::error::release $TAG already carries $f. This workflow never overwrites an asset; remove it by hand first if a rebuild is intended."; exit 1 ;;
-            esac
-          done
-          echo "release $TAG exists; assets: [${assets:-none}]"
+          if [ "$DRY_RUN" = "true" ]; then
+            # A dry run uploads nothing, so existing assets are not a conflict for it.
+            echo "release $TAG exists; assets: [${assets:-none}]; dry run — nothing will be uploaded"
+          else
+            for f in stovesdk.node SHA256SUMS; do
+              case " $assets " in
+                *" $f "*) echo "::error::release $TAG already carries $f. This workflow never overwrites an asset; remove it by hand first if a rebuild is intended."; exit 1 ;;
+              esac
+            done
+            echo "release $TAG exists; assets: [${assets:-none}]"
+          fi
 
       # This workflow's own ref: the SDK pin and the fetch tool, as reviewed on main.
       - uses: actions/checkout@v4
