@@ -18,6 +18,7 @@
   ],
   "main": "index.js",
   "types": "index.d.ts",
+  "gypfile": false,
   "os": [
     "win32"
   ],

@@ -20,9 +20,11 @@ identifiers, no game policy. Tracked in issue #1.
   release — replacing the manual step in [RELEASING.md](RELEASING.md). Whatever is
   chosen keeps the trust boundary that file states: no pull request ever reaches a
   runner that may hold the SDK.
-- **The install story.** How the native part reaches a consumer: a prebuild inside the
-  package or a download from the GitHub release at install time, with a clear message
-  when neither applies.
+- **The install story.** How the native part reaches a consumer. Decided for now
+  (#8): an install compiles nothing (`"gypfile": false`), and the consumer places the
+  binary from the GitHub release where `load()` looks (README, *Install*). A prebuild
+  inside the package or a download at install time come back on the table with npm
+  publishing.
 
 ## Later
 

@@ -38,6 +38,11 @@ is the whole native side.
 - **One build for Node and Electron.** N-API version 8, no per-ABI rebuilds. The `.node`
   hard-imports the three SDK DLLs on purpose (a missing DLL is a catchable error at
   `require()`, not a crash on first call).
+- **An install compiles nothing.** `package.json` sets `"gypfile": false`, so npm does
+  not turn the root `binding.gyp` into an implicit `node-gyp rebuild`; `npm run build` is
+  the only build, and the consumer places the release binary where `load()` looks
+  (README, *Install*). `test/package.test.js` pins this. A download at install time or a
+  prebuild inside a tarball are open options for when publishing is (#8).
 
 ## Conventions
 
@@ -63,10 +68,9 @@ SDK file types (`.dll .lib .pdb .node .h`); CI checks the file types, not the wo
 
 ## Verification — run these before you call a unit finished
 
-Off Windows, install with `npm ci --force --ignore-scripts` (`--force` skips only the
-package's own `os`/`cpu` check; `--ignore-scripts` is needed because the root
-`binding.gyp` makes npm run an implicit `node-gyp rebuild` on install). These are the
-commands CI's `test` job runs:
+Off Windows, install with `npm ci --force` (`--force` skips only the package's own
+`os`/`cpu` check; nothing is compiled on install). These are the commands CI's `test`
+job runs:
 
 | Command | Checks |
 | --- | --- |
