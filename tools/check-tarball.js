@@ -8,11 +8,21 @@
 //
 // The SDK is bring-your-own and is never redistributed: no sdk/ path, no .dll/.lib/.pdb/.h.
 // The one binary a published tarball may carry is the maintainer-built addon, and only there.
+//
+// `npm pack --json` is an array of one entry up to npm 11 and an object keyed by package name
+// from npm 12; packFiles() takes either.
 
 const PREBUILD = 'prebuilds/win32-x64/stovesdk.node'
 const SUMS = 'prebuilds/win32-x64/SHA256SUMS'
 const SDK_FILE = /^sdk\/|\.(dll|lib|pdb|exe|h|hpp)$/i
 const BINARY = /\.node$/i
+
+// The file paths of the one package in `npm pack --dry-run --json` output, whichever shape.
+function packFiles(json) {
+  const entry = Array.isArray(json) ? json[0] : json && typeof json === 'object' ? Object.values(json)[0] : undefined
+  if (!entry || !Array.isArray(entry.files)) throw new TypeError('not the output of `npm pack --json`: no package entry with a files list')
+  return { name: entry.name, version: entry.version, files: entry.files.map(f => f.path) }
+}
 
 function checkTarball(files, { withPrebuild = false } = {}) {
   const problems = []
@@ -31,7 +41,7 @@ function checkTarball(files, { withPrebuild = false } = {}) {
   return problems
 }
 
-module.exports = { checkTarball, PREBUILD, SUMS }
+module.exports = { checkTarball, packFiles, PREBUILD, SUMS }
 
 if (require.main === module) {
   const [file, flag] = process.argv.slice(2)
@@ -39,13 +49,12 @@ if (require.main === module) {
     console.error('usage: node tools/check-tarball.js <pack.json> [--with-prebuild]')
     process.exit(2)
   }
-  const [pack] = require(require('path').resolve(file))
-  const files = pack.files.map(f => f.path)
+  const { name, version, files } = packFiles(require(require('path').resolve(file)))
   const withPrebuild = flag === '--with-prebuild'
   const problems = checkTarball(files, { withPrebuild })
   if (problems.length) {
     for (const p of problems) console.error(`::error::${p}`)
     process.exit(1)
   }
-  console.log(`npm pack: ${files.length} files, ${pack.name}@${pack.version}, ${withPrebuild ? 'prebuild in, ' : 'no binary, '}nothing from the SDK`)
+  console.log(`npm pack: ${files.length} files, ${name}@${version}, ${withPrebuild ? 'prebuild in, ' : 'no binary, '}nothing from the SDK`)
 }
