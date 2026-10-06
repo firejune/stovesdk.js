@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/firejune/stovesdk.js/compare/v0.2.0...v0.3.0) (2026-10-06)
+
+
+### Features
+
+* publish to npm, with the Windows prebuild inside the tarball ([#16](https://github.com/firejune/stovesdk.js/issues/16)) ([2597f75](https://github.com/firejune/stovesdk.js/commit/2597f7535f35f83ebbbf9ce05a68dbe0f6ce9981)), closes [#15](https://github.com/firejune/stovesdk.js/issues/15)
+
 ## [0.2.0](https://github.com/firejune/stovesdk.js/compare/v0.1.0...v0.2.0) (2026-10-06)
 
 
