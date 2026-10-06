@@ -43,8 +43,8 @@ is the whole native side.
 - **An install compiles nothing.** `package.json` sets `"gypfile": false`, so npm does
   not turn the root `binding.gyp` into an implicit `node-gyp rebuild`; `npm run build` is
   the only build, and the consumer places the release binary where `load()` looks
-  (README, *Install*). `test/package.test.js` pins this. A download at install time or a
-  prebuild inside a tarball are open options for when publishing is (#8).
+  (README, *Install*). `test/package.test.js` pins this. The npm tarball carries the
+  prebuild (#15), so an npm install needs no further step; a git-tag install does.
 
 ## Conventions
 
@@ -54,7 +54,11 @@ is the whole native side.
   `index.d.ts`, the README API table, and `test/types-usage.ts` (the compile-only
   check of the typings). `tools/smoke.js` checks the export surface of a built addon.
 - `files` in `package.json` is the allowlist of what ships. A runtime file outside it
-  works from a clone and throws `Cannot find module` from an install.
+  works from a clone and throws `Cannot find module` from an install. `prebuilds/` is in
+  it for the maintainer-built addon that `publish.yml` adds; the SDK's DLLs never are.
+- No `os`/`cpu` in `package.json`: an install compiles nothing, so the fields would only
+  break `npm install` on the machines a consumer game is developed on. `load()` refuses
+  off Windows at runtime instead.
 - Conventional Commits, English subject and body, a scope where one fits
   (`feat(addon):`, `fix(js):`, `ci(prebuild):`, `docs(readme):`). Commit each
   finished unit. [CONTRIBUTING.md](CONTRIBUTING.md) has what each type does to a release.
@@ -70,9 +74,8 @@ SDK file types (`.dll .lib .pdb .node .h`); CI checks the file types, not the wo
 
 ## Verification — run these before you call a unit finished
 
-Off Windows, install with `npm ci --force` (`--force` skips only the package's own
-`os`/`cpu` check; nothing is compiled on install). These are the commands CI's `test`
-job runs:
+Off Windows, `npm ci` installs the dev dependencies (nothing is compiled on install).
+These are the commands CI's `test` job runs:
 
 | Command | Checks |
 | --- | --- |
@@ -124,8 +127,12 @@ above; these are the findings that matter here, by severity.
   a `pull_request`/`pull_request_target`/`push`/`schedule` trigger on `prebuild.yml`,
   a self-hosted runner on a job that builds pull requests, or `${{ github.event.* }}`
   text interpolated into a `run:` script instead of passed through `env:`.
-- A publish step, npm token or `id-token: write` added to `release.yml` — npm
-  publishing is not authorized (RELEASING.md).
+- A publish step, an npm token or `id-token: write` in any workflow but `publish.yml`,
+  or a long-lived npm token anywhere at all: publishing is OIDC trusted publishing from
+  `publish.yml` alone, on a GitHub-hosted runner, from a tag whose GitHub release carries
+  the prebuild (RELEASING.md *Publishing*). A `pull_request`/`push`/`release`/`schedule`
+  trigger on `publish.yml`, a self-hosted runner there, or the prebuild being built there
+  instead of downloaded from the release, is the same finding.
 
 **P1 — real defects**
 

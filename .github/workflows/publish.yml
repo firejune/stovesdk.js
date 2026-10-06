@@ -1,0 +1,112 @@
+# Publish: npm publish of one tagged release, dispatched by hand after its prebuild is attached.
+#
+# Why this is not a step of release.yml: the addon is compiled against the private SDK
+# outside CI, after the tag exists (RELEASING.md, *Prebuilt binaries*), and the tarball
+# carries that prebuild. A publish can therefore only happen once the GitHub release has
+# `stovesdk.node` and `SHA256SUMS` attached — a maintainer dispatches this workflow then.
+#
+# What the job checks before it publishes:
+#   - the tag names the version in package.json;
+#   - the release's stovesdk.node matches the release's SHA256SUMS;
+#   - the unit tests and the strict typings still pass on the tag;
+#   - the tarball carries exactly one binary — that prebuild — and nothing from the SDK.
+#
+# 🔒 Trust boundary — read this before changing a trigger, the runner or the auth.
+#   - OIDC trusted publishing only. No npm token exists in this repository and none may be
+#     added. npm's trusted publisher for this package is pinned to GitHub Actions on
+#     firejune/stovesdk.js and to the filename `publish.yml` — renaming this file breaks
+#     publishing (RELEASING.md, *Publishing*).
+#   - GitHub-hosted runner only. npm does not support OIDC from self-hosted runners, and this
+#     job must never move to a runner that may hold the SDK.
+#   - `workflow_dispatch` only. Dispatching needs write access; a pull request cannot reach
+#     this job, and no `pull_request`, `push`, `release` or `schedule` trigger may be added.
+#   - The prebuild is downloaded from the GitHub release, never built here.
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (vX.Y.Z). Its GitHub release must carry stovesdk.node and SHA256SUMS.
+        required: true
+        type: string
+      dry-run:
+        description: Pack and verify only — publish nothing
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: publish-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # the tag, and the release assets
+      id-token: write # OIDC token for npm trusted publishing
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 bundles npm 10.
+      - name: Use an npm that speaks OIDC
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: The tag names the version in package.json
+        run: |
+          set -euo pipefail
+          case "$TAG" in v[0-9]*) ;; *) echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1 ;; esac
+          version=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match package.json version $version"
+            exit 1
+          fi
+          echo "publishing stovesdk.js@$version from $TAG"
+
+      - name: Take the prebuild from the GitHub release and verify its checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p prebuilds/win32-x64
+          gh release download "$TAG" --pattern stovesdk.node --pattern SHA256SUMS --dir prebuilds/win32-x64
+          (cd prebuilds/win32-x64 && sha256sum -c SHA256SUMS)
+
+      - name: Install dev dependencies
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: Unit tests and typings on the tag
+        run: |
+          npm test
+          npm run typecheck
+
+      # The tarball must carry exactly one binary — our own prebuild — and nothing from the SDK.
+      - name: Pack and inspect the tarball
+        run: |
+          set -euo pipefail
+          npm pack --dry-run --json --ignore-scripts > "$RUNNER_TEMP/pack.json"
+          node tools/check-tarball.js "$RUNNER_TEMP/pack.json" --with-prebuild
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry-run }}
+        run: npm publish --provenance --access public
+
+      - name: Dry run — nothing published
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "dry-run: $TAG packed and verified; nothing was published."

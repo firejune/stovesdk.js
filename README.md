@@ -4,7 +4,7 @@ Unofficial Node.js / Electron bindings for the **STOVE PC SDK** (N-API).
 
 The STOVE PC SDK ships official bindings for C, C#, and C++ only. This project wraps the native SDK so Electron and Node.js games can use it the way `steamworks.js` wraps Steamworks.
 
-> **Status: alpha.** The addon source, JS entry and typings are in place. A prebuilt `stovesdk.node` is attached to each [GitHub release](https://github.com/firejune/stovesdk.js/releases); the package is not on npm. See *Install* and *Build* below.
+> **Status: alpha.** Install from npm as `stovesdk.js`; the Windows x64 prebuild ships inside the package and is also attached to each [GitHub release](https://github.com/firejune/stovesdk.js/releases). See *Install* and *Build* below.
 
 ## Scope
 
@@ -33,30 +33,34 @@ Your use of the SDK is governed by STOVE's own terms.
 
 ## Install
 
-Installing the package compiles nothing. `package.json` sets `"gypfile": false`, so npm does not run the implicit `node-gyp rebuild` that a root `binding.gyp` would otherwise trigger, and an install succeeds on a machine with no SDK and no C++ toolchain. The native part is a separate file you place yourself:
+```sh
+npm install stovesdk.js
+```
 
-1. Install the package from this repository at a release tag — it is not published to npm:
+The package carries the Windows x64 prebuild at `prebuilds/win32-x64/stovesdk.node` (with its `SHA256SUMS`), which is the last place `load()` looks, so the binary needs no further step. Installing compiles nothing: `package.json` sets `"gypfile": false`, so npm does not run the implicit `node-gyp rebuild` that a root `binding.gyp` would otherwise trigger, and the install succeeds on any platform — the JS entry works everywhere, and off Windows `load()` refuses at runtime with code `STOVE_PCSDK_UNSUPPORTED_PLATFORM`.
 
-   ```sh
-   npm install github:firejune/stovesdk.js#vX.Y.Z
-   ```
+What you still provide is the SDK: `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll` next to the `.node` or next to your executable (see *Build*). They are part of the SDK, not of this package.
 
-   (v0.1.0, the release before this change, still runs `node-gyp rebuild` on install; add `--ignore-scripts` for that one.)
+### Where `load()` looks
 
-2. Download `stovesdk.node` and `SHA256SUMS` from the [GitHub release](https://github.com/firejune/stovesdk.js/releases) of the same version, and check the sum (`sha256sum -c SHA256SUMS`, or `CertUtil -hashfile stovesdk.node SHA256`).
+In order; the first file that exists wins:
 
-3. Put the binary where `load()` looks. In order:
+| Location | How |
+| --- | --- |
+| Any path | `load('C:/path/to/stovesdk.node')` |
+| Any path | `STOVE_PCSDK_ADDON=C:/path/to/stovesdk.node` in the environment |
+| `node_modules/stovesdk.js/build/Release/` | where `npm run build` puts its output |
+| `node_modules/stovesdk.js/prebuilds/win32-x64/` | where the npm package ships the prebuild |
 
-   | Location | How |
-   | --- | --- |
-   | Any path | `load('C:/path/to/stovesdk.node')` |
-   | Any path | `STOVE_PCSDK_ADDON=C:/path/to/stovesdk.node` in the environment |
-   | `node_modules/stovesdk.js/build/Release/` | where `npm run build` puts its output |
-   | `node_modules/stovesdk.js/prebuilds/win32-x64/` | drop the release binary here |
+An Electron app usually ships the `.node` in its own resources, next to the three SDK DLLs it has to ship anyway, and calls `load(path)` with that location. When none of the four places has a file, `load()` throws with code `STOVE_PCSDK_ADDON_NOT_FOUND` and lists the paths it tried.
 
-   An Electron app usually ships the `.node` in its own resources, next to the three SDK DLLs it has to ship anyway, and calls `load(path)` with that location. When none of the four places has a file, `load()` throws with code `STOVE_PCSDK_ADDON_NOT_FOUND` and lists the paths it tried.
+### Installing from a git tag instead
 
-4. Put the three SDK DLLs next to the `.node` or next to your executable (see *Build*).
+```sh
+npm install github:firejune/stovesdk.js#vX.Y.Z
+```
+
+installs the same package without the prebuild (binaries are not tracked in git). Download `stovesdk.node` and `SHA256SUMS` from the [GitHub release](https://github.com/firejune/stovesdk.js/releases) of the same version, check the sum (`sha256sum -c SHA256SUMS`, or `CertUtil -hashfile stovesdk.node SHA256`), and put the binary in one of the places above. (v0.1.0 still runs `node-gyp rebuild` on install; add `--ignore-scripts` for that one.)
 
 Or build the binary yourself, below.
 
@@ -76,7 +80,7 @@ npm run smoke             # loads the addon and exercises the paths that need no
 
 The `.node` hard-imports `BaseSDK.dll`, `OwnershipSDK.dll` and `GameSupportSDK.dll`. Ship those three DLLs next to the `.node` (or next to your executable) — they are part of the SDK, not of this package. When one is in neither place, `load()` throws with code `STOVE_PCSDK_DLL_NOT_FOUND` naming the missing files and the two directories it checked (see *`load()` errors*).
 
-On other platforms the JS side still works for development, but there is nothing to compile. `package.json` declares `os: ["win32"]` and `cpu: ["x64"]`, so npm refuses a plain install there; install the dev dependencies with `npm ci --force` (`--force` skips only that platform check — a lockfile out of sync with `package.json` is still refused) and then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
+On other platforms the JS side still works for development, but there is nothing to compile: `npm ci`, then `npm test` and `npm run typecheck` run as they do in CI; `tools/syntax-check.sh` can parse the C++ against your SDK headers with clang as a pre-flight.
 
 ## Usage
 
@@ -183,9 +187,11 @@ When all three DLLs are present and the load still fails, the original error is 
 
 SDK callbacks are plain C function pointers with no user-data slot, and the vendor docs do not state which thread they fire on. The addon therefore never touches N-API inside a callback: callbacks copy their result into a mutex-guarded queue, and `runCallbacks()` drains that queue on the JS thread, where it advances the init chain, issues follow-up SDK calls and settles Promises.
 
-## Prebuilds and CI
+## Prebuilds, publishing and CI
 
-[`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml) is a manually triggered Windows x64 build that expects the SDK to be present on the runner at `STOVE_PCSDK_DIR`. Because the SDK is not public, the workflow does not download it; how CI gets the SDK is an open design question — see the workflow header for the options under consideration.
+[`.github/workflows/prebuild.yml`](.github/workflows/prebuild.yml) is a manually triggered Windows x64 build that expects the SDK to be present on the runner at `STOVE_PCSDK_DIR`. Because the SDK is not public, the workflow does not download it; how CI gets the SDK is an open design question — see the workflow header for the options under consideration. Until it is settled, the prebuild is built by the maintainer and attached to the GitHub release.
+
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) publishes a tagged release to npm, by manual dispatch once its prebuild is attached: it takes `stovesdk.node` from the GitHub release, checks it against `SHA256SUMS`, checks that the tarball carries that one binary and nothing from the SDK, and publishes over OIDC trusted publishing with provenance. [RELEASING.md](RELEASING.md) has the sequence.
 
 ## Contributing and releases
 

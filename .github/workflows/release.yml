@@ -6,12 +6,13 @@
 # Merging that pull request is the release: the resulting push runs this
 # workflow again, and release-please tags vX.Y.Z and cuts the GitHub release.
 #
-# ⛔ npm publishing is NOT part of this workflow. It has not been authorized
-# for this package, and this file must not grow a publish step, an npm token or
-# `id-token: write` until it is — RELEASING.md *Publishing* records the decision
-# and what turning it on would take. Until then a release is a tag, a GitHub
-# release and a changelog; the Windows prebuild is attached to the GitHub
-# release by hand (RELEASING.md *Prebuilt binaries*).
+# ⛔ npm publishing is NOT part of this workflow, and this file must not grow a
+# publish step, an npm token or `id-token: write`. The tarball carries the
+# Windows prebuild, which is compiled against the private SDK outside CI after
+# the tag exists, so the publish is publish.yml — dispatched by hand once the
+# prebuild is attached to the GitHub release (RELEASING.md *Prebuilt binaries*,
+# *Publishing*). What this workflow cuts is the tag, the GitHub release and the
+# changelog.
 #
 # 🔒 GitHub-hosted runner only. This job writes tags and releases; it never
 # runs on a self-hosted runner.
@@ -56,4 +57,4 @@ jobs:
           TAG_NAME: ${{ steps.release.outputs.tag_name }}
         run: |
           echo "Cut ${TAG_NAME}: tag and GitHub release created."
-          echo "Not published to npm (not authorized). Attach the win32-x64 prebuild to the release by hand — RELEASING.md."
+          echo "Next, by hand: attach the win32-x64 prebuild to the release, then dispatch publish.yml — RELEASING.md."

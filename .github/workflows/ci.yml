@@ -37,14 +37,11 @@ jobs:
         with:
           node-version: 22
 
-      # `--force` skips exactly one check here: package.json declares
-      # `os: ["win32"]` / `cpu: ["x64"]`, and npm refuses to install a root package
-      # on a platform it does not list. A lockfile out of sync with package.json is
-      # still refused under `--force`. The package itself compiles nothing on install
-      # (`"gypfile": false`); `--ignore-scripts` keeps any dependency's install script
-      # from running on this runner as well.
+      # The package compiles nothing on install (`"gypfile": false`) and declares no
+      # `os`/`cpu`, so a plain `npm ci` works on this runner; `--ignore-scripts` keeps
+      # any dependency's install script from running as well.
       - name: Install dev dependencies
-        run: npm ci --no-audit --no-fund --ignore-scripts --force
+        run: npm ci --no-audit --no-fund --ignore-scripts
 
       - name: Unit tests (pure JS, no native build)
         run: npm test
@@ -88,8 +85,10 @@ jobs:
             console.log(`release-please config OK (${pkg.name}@${pkg.version})`)
           '
 
-      # Public-repository hygiene. The SDK is bring-your-own: none of its files,
-      # and no compiled binary, may be tracked or end up in the npm tarball.
+      # Public-repository hygiene. The SDK is bring-your-own: none of its files may be
+      # tracked or packed, and the source tree packs no binary at all. The one binary a
+      # published tarball carries — the maintainer-built prebuild — is added and checked
+      # by publish.yml with the same script.
       - name: Nothing from the SDK is tracked or packed
         run: |
           set -euo pipefail
@@ -98,9 +97,4 @@ jobs:
             echo "::error::SDK files or binaries are tracked:"; echo "$tracked"; exit 1
           fi
           npm pack --dry-run --json --ignore-scripts > "$RUNNER_TEMP/pack.json"
-          node -e '
-            const [pack] = require(process.argv[1])
-            const bad = pack.files.map(f => f.path).filter(p => /^sdk\/|\.(dll|lib|pdb|node|exe|h|hpp)$/i.test(p))
-            if (bad.length) { console.error("would ship:\n" + bad.join("\n")); process.exit(1) }
-            console.log(`npm pack: ${pack.files.length} files, none from the SDK`)
-          ' "$RUNNER_TEMP/pack.json"
+          node tools/check-tarball.js "$RUNNER_TEMP/pack.json"
