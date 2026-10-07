@@ -25,8 +25,17 @@ is the whole native side.
   the SDK ends: nothing from it is ever committed, packed or redistributed — no headers,
   import libraries, DLLs, samples or excerpts of its documentation. A public download is a
   fact about the vendor's hosting, not a licence to redistribute; what governs use is the
-  developer agreement a STOVE Studio account accepts, which this repository does not
-  restate. Builds resolve the SDK from `sdk/` or `STOVE_PCSDK_DIR`
+  STOVE Studio Terms of Use a partner account accepts — its Art. 7(5) (no provision or
+  disclosure of the SDK to third parties without written consent, no reverse engineering,
+  no use beyond the provided purpose) and Art. 18 (confidentiality) are the source of this
+  policy. In writing on 2026-10-07 the vendor confirmed, on the maintainer's question, that
+  a hosted build service fetching the archives for a transient build and this open-source
+  wrapper are within that purpose, on conditions this file keeps: nothing from the SDK in
+  the repository or a package; the SDK never statically linked into or embedded in a
+  shipped binary (the `.node` imports the DLLs dynamically); nothing learned from analysing
+  SDK binaries; no bypassing or imitating OwnershipSDK's ownership check; the package
+  stating that it is not official (README, *Disclaimer*). Builds resolve the SDK from
+  `sdk/` or `STOVE_PCSDK_DIR`
   ([`tools/sdk-dir.js`](tools/sdk-dir.js) is the one resolver). CI refuses a tracked SDK
   file or binary and anything of the kind in `npm pack`.
 - **N-API is touched on the JS thread only.** SDK callbacks are plain C function
@@ -127,6 +136,11 @@ above; these are the findings that matter here, by severity.
 
 **P0 — block the merge**
 
+- Anything that bypasses, short-circuits or imitates OwnershipSDK's ownership check —
+  a stub result, a cached "owned" answer, a path around `Ownership_OwnershipList` — or
+  static linking / embedding of SDK code in the `.node`, or anything derived from analysing
+  the SDK's binaries. These are the vendor's written conditions (AGENTS.md, *Bring your
+  own SDK*), not style.
 - Any SDK material in the diff: headers, `.lib`/`.dll`/`.pdb`, a compiled `.node`,
   vendored SDK source, or text copied from the vendor's documentation.
 - A secret, game ID, application key, internal URL or address, or a machine/runner
