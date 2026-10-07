@@ -160,6 +160,24 @@ Notes:
 - A stat that has never been written reports `currentValue` as `-2147483648`. That is the SDK's own `int32` value, passed through unchanged.
 - Leave a moment between `uninitialize()` and the next `initialize()`. The STOVE client re-creates its side of the connection after a disconnect, and an immediate re-initialize can answer `{ status: 'restart' }`.
 
+### Coverage — what is wrapped and what is not
+
+The SDK drop has seven modules. This module links three and wraps the calls a shipping game has needed so far; the rest is listed so you know before you start, not after. Coverage grows by consumer request (ROADMAP), not by the size of the SDK — open an issue naming the SDK call and what the game needs it for.
+
+| SDK module | Wrapped | Not wrapped (present in the SDK) |
+| --- | --- | --- |
+| **BaseSDK** | initialize / uninitialize (`Base_RestartAppIfNecessaryAsync`, `Base_Initialize`, `Base_UnInitialize`), the callback pump (`Base_RunCallback`), login identity (`Base_GetUser`, `Base_GetGds`), `Base_GetVersion` | access tokens for a game server (`Base_GetAccessToken`, `Base_GetRenewToken`, `Base_AccessTokenRenewed`); `Base_SetLanguage`, `Base_SetGameProfile`; the launcher's shutdown request (`Base_GetShutdown`, `Base_ShutdownNotification`); over-immersion notices (`Base_GetOverImmersion`, `Base_OverImmersionNotification`); `Base_GetSignin`, `Base_GetTraceHint`; `Base_RunCallbackWithTimeout`; the synchronous `Base_RestartAppIfNecessary` |
+| **OwnershipSDK** | everything: `Ownership_OwnershipList` (with `Ownership_Initialize` / `Ownership_UnInitialize` managed for you) | — |
+| **GameSupportSDK** | achievements and stats (`GameSupport_Achievement`, `GameSupport_AllAchievement`, `GameSupport_Stat`, `GameSupport_ModifyStat`) | leaderboards (`GameSupport_Rank`) |
+| **ViewSDK** | — | the whole module: overlay and in-game popups |
+| **IAPSDK** | — | the whole module: in-game purchases |
+| **GamingServicesSDK** | — | the whole module |
+| **PCBangSDK** | — | the whole module (PC-café entitlements) |
+
+Not provided by the SDK at all, so not something this module can add: an achievement "unlock" call (achievements complete through their stat — see *Notes*), an achievement reset, cloud-save queries (cloud save is configured in STOVE Studio, not in code), controller input, and anything Steam-specific such as rich presence or workshop.
+
+Also out of scope by design, whatever the SDK offers: decisions on the caller's behalf — what to do when ownership fails, when to quit, what to show. The module reports; the game decides.
+
 ### Error codes
 
 Rejected Promises carry `step`, `sdk`, `method`, `code` and `externalError`. `code` is the SDK's own result code (unsigned) when the SDK answered, or one of these negative addon codes when the addon refused the call:
